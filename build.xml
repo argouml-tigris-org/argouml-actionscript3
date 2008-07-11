@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+
+<!-- ===========================================================================
+     Ant build for ArgoUML PHP module
+     ============================================================================ -->
+
+<project name="argouml-actionscript3" default="compile" basedir=".">
+
+  <!-- =================================================================== -->
+  <!-- Initialization target                                               -->
+  <!-- =================================================================== -->
+
+ <target name="init">
+
+    <property file="module.properties"/>
+
+    <property name="module.root" value="${basedir}"/>
+    <property name="module.src.dir" value="${module.root}/src"/>
+
+    <property name="packages" value="org.argouml.*"/>
+    <property name="manifest" value="manifest.mf"/>
+    <property name="manifest.src" value="${module.src.dir}/org/${manifest}"/>
+
+    <property name="module.build.dir" value="${module.root}/build"/>
+    <property name="module.build.src" value="${module.src.dir}"/>
+    <property name="module.build.dest" value="${module.build.dir}/classes"/>
+
+    <property name="module.jarfile.name"
+              value="argouml_actionscript3.jar"/>
+    <property name="module.jarfile"
+              value="${module.build.dir}/${module.jarfile.name}"/>
+
+    <property name="debug" value="off"/>
+    <property name="optimize" value="on"/>
+    <property name="deprecation" value="on"/>
+    <property name="argo.build.dir" value="../argouml/build"/>
+    <property name="result.dir" value="../argouml/build"/>
+
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Compiles the source directory                                       -->
+  <!-- =================================================================== -->
+  <target name="compile" depends="init"> 
+    <!-- create directories -->
+    <mkdir dir="${module.build.dest}"/>
+
+    <javac srcdir="${module.build.src}"
+           destdir="${module.build.dest}"
+           excludes="*.txt,*.bat,*.xml,*.sh"
+           debug="${debug}"
+           deprecation="${deprecation}"
+           optimize="${optimize}">
+        <classpath>
+            <pathelement location="${argo.build.dir}/argouml.jar"/>
+            <pathelement location="${argo.build.dir}/log4j.jar"/>
+            <pathelement location="${argo.build.dir}/argouml-model.jar"/>
+        </classpath>
+     </javac>
+  </target>
+
+
+  <!-- =================================================================== -->
+  <!-- Creates the class jar                                           -->
+  <!-- =================================================================== -->
+  <target name="jar" depends="compile">
+    <copy file="${manifest.src}" tofile="${module.build.dest}/${manifest}" filtering="on" overwrite="on" />
+    <jar jarfile="${module.jarfile}"
+         basedir="${module.build.dest}"
+         includes="org/argouml/**"
+         excludes="*.txt,*.bat,*.xml,*.sh,${manifest}"
+         manifest="${module.build.dest}/${manifest}"/>
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Run ArgoUML from compiled sources                                   -->
+  <!-- =================================================================== -->
+  <target name="run" depends="install">
+    <java classname="org.argouml.application.Main"
+          fork="yes">
+        <classpath>
+            <fileset dir="${module.build.dir}">
+                <include name="${module.jarfile.name}" />
+	    </fileset>
+            <fileset dir="${argo.build.dir}">
+                <include name="*.jar"/>
+            </fileset>
+        </classpath>
+    </java>
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Clean targets                                                       -->
+  <!-- =================================================================== -->
+  <target name="clean" depends="init">
+    <delete file="${result.dir}/ext/${module.jarfile.name}"/>
+    <delete file="${argo.build.dir}/ext/${module.jarfile.name}"/>
+    <delete dir="${module.build.dir}"/>
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Move the jar file into the extension directory.                     -->
+  <!-- =================================================================== -->
+  <target name="install" depends="jar">
+    <copy todir="${result.dir}/ext">
+      <fileset dir="${module.build.dir}" includes="${module.jarfile.name}"/>
+    </copy>
+  </target>
+
+</project>
+
+<!-- End of file -->

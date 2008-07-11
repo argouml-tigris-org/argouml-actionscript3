@@ -1,0 +1,14 @@
+Manifest-Version: 2.0
+Class-Path: argouml.jar
+Created-By: 1.3.1 (Sun Microsystems Inc.)
+
+Name: org/argouml/language/actionscript3/generator/Module.class
+Extension-name: module.language.generator.actionscript3
+Specification-Title: ArgoUML Dynamic Load Module
+Specification-Version: 0.9.9
+Specification-Vendor: University of California
+Implementation-Vendor: Who Is It?
+Implementation-Version: 0.0.1
+Implementation-Title: ArgoUML ActionScript3 Code Generator Plugin
+
+
