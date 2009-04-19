@@ -35,7 +35,7 @@ import java.util.Iterator;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
-import org.argouml.language.actionscript3.PHPDocumentor;
+import org.argouml.language.actionscript3.AS3Documentor;
 import org.argouml.model.Model;
 import org.argouml.uml.UUIDHelper;
 import org.argouml.uml.generator.CodeGenerator;
@@ -107,9 +107,9 @@ public class GeneratorAS3 implements CodeGenerator {
         String sOperation = "";
 
         if (bAddDocs) {
-            PHPDocumentor objPHPDoc = null;
+            AS3Documentor objPHPDoc = null;
             try {
-                objPHPDoc = new PHPDocumentor(modelElement);
+                objPHPDoc = new AS3Documentor(modelElement);
             } catch (Exception exp) {
                 LOG.error("Generating operation DocBlock FAILED: "
                     + exp.getMessage());
@@ -194,9 +194,9 @@ public class GeneratorAS3 implements CodeGenerator {
         String sAttribute = "";
 
         if (bAddDocs) {
-            PHPDocumentor objPHPDoc = null;
+            AS3Documentor objPHPDoc = null;
             try {
-                objPHPDoc = new PHPDocumentor(modelElement);
+                objPHPDoc = new AS3Documentor(modelElement);
             } catch (Exception exp) {
                 LOG.error("Generating attribute DocBlock FAILED: "
                     + exp.getMessage());
@@ -372,9 +372,9 @@ public class GeneratorAS3 implements CodeGenerator {
 
         String sPackageName = NameGenerator.generate(modelElement);
 
-        PHPDocumentor objPHPDoc = null;
+        AS3Documentor objPHPDoc = null;
         try {
-            objPHPDoc = new PHPDocumentor(modelElement);
+            objPHPDoc = new AS3Documentor(modelElement);
         } catch (Exception exp) {
             LOG.error("Generating package DocBlock FAILED: "
                     + exp.getMessage());
@@ -450,9 +450,9 @@ public class GeneratorAS3 implements CodeGenerator {
 	    return null;
 	}
 
-        PHPDocumentor objPHPDoc = null;
+        AS3Documentor objPHPDoc = null;
         try {
-            objPHPDoc = new PHPDocumentor(modelElement);
+            objPHPDoc = new AS3Documentor(modelElement);
         } catch (Exception exp) {
             LOG.error("Generating classifier DocBlock FAILED: "
                     + exp.getMessage());
@@ -559,9 +559,9 @@ public class GeneratorAS3 implements CodeGenerator {
         }
 
         StringBuffer text = new StringBuffer();        
-        PHPDocumentor objPHPDoc = null;
+        AS3Documentor objPHPDoc = null;
         try {
-            objPHPDoc = new PHPDocumentor(modelElement);
+            objPHPDoc = new AS3Documentor(modelElement);
         } catch (Exception exp) {
             LOG.error("Generating AssociationEnd DocBlock FAILED: "
                     + exp.getMessage());
@@ -880,10 +880,10 @@ public class GeneratorAS3 implements CodeGenerator {
 
         sOutput += "error_reporting(E_ALL);\n\n";
 
-        PHPDocumentor objPHPDoc = null;
+        AS3Documentor objPHPDoc = null;
         try {
-            objPHPDoc = new PHPDocumentor(modelElement,
-                    PHPDocumentor.BLOCK_TYPE_FILE);
+            objPHPDoc = new AS3Documentor(modelElement,
+                    AS3Documentor.BLOCK_TYPE_FILE);
         } catch (Exception exp) {
             LOG.error("Generating file DocBlock FAILED: "
                     + exp.getMessage());
@@ -1021,9 +1021,9 @@ public class GeneratorAS3 implements CodeGenerator {
 
                     sClsAttr += "\n";
 
-                    PHPDocumentor objPHPDoc = null;
+                    AS3Documentor objPHPDoc = null;
                     try {
-                        objPHPDoc = new PHPDocumentor(attr);
+                        objPHPDoc = new AS3Documentor(attr);
                     } catch (Exception exp) {
                         LOG.error("Generating attribute DocBlock FAILED: "
                                 + exp.getMessage());
@@ -1150,9 +1150,9 @@ public class GeneratorAS3 implements CodeGenerator {
                 for (Object operation : Model.getFacade().getOperations(spec)) {
                     sClsOp += "\n";
 
-                    PHPDocumentor objPHPDoc = null;
+                    AS3Documentor objPHPDoc = null;
                     try {
-                        objPHPDoc = new PHPDocumentor(operation);
+                        objPHPDoc = new AS3Documentor(operation);
                     } catch (Exception exp) {
                         LOG.error("Generating operation DocBlock " + "FAILED: "
                                 + exp.getMessage());
@@ -1171,9 +1171,9 @@ public class GeneratorAS3 implements CodeGenerator {
         for (Object operation : Model.getFacade().getOperations(modelElement)) {
 
             sClsOp += "\n";
-            PHPDocumentor objPHPDoc = null;
+            AS3Documentor objPHPDoc = null;
             try {
-                objPHPDoc = new PHPDocumentor(operation);
+                objPHPDoc = new AS3Documentor(operation);
             } catch (Exception exp) {
                 LOG.error("Generating operation DocBlock FAILED: "
                         + exp.getMessage());
@@ -1248,10 +1248,10 @@ public class GeneratorAS3 implements CodeGenerator {
         String sRequired = "";
 
         if (bAddDocs) {
-            PHPDocumentor objPHPDoc = null;
+            AS3Documentor objPHPDoc = null;
             try {
-                objPHPDoc = new PHPDocumentor(modelElement,
-                        PHPDocumentor.BLOCK_TYPE_INCLUDE);
+                objPHPDoc = new AS3Documentor(modelElement,
+                        AS3Documentor.BLOCK_TYPE_INCLUDE);
             } catch (Exception exp) {
                 LOG.error("Generating include DocBlock FAILED: "
                         + exp.getMessage());

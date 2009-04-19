@@ -39,12 +39,15 @@ import org.argouml.language.actionscript3.generator.NameGenerator;
 import org.argouml.model.Model;
 
 /**
- * This class generates DocBlocks in PHPDocumentor style
+ * This class generates DocBlocks.
+ *
+ * This was taken from the PHPDocumentor. Hopefully that is similar
+ * to the AS3 to be used as a starting point to get the AS3 in place.
  *
  * @author Kai Schr&ouml;der
  * @since  ArgoUML 0.15.5
  */
-public final class PHPDocumentor {
+public final class AS3Documentor {
     /**
      * Class level DocBlock.
      */
@@ -85,7 +88,7 @@ public final class PHPDocumentor {
     /**
      * The log4j logger to log messages to
      */
-    private static final Logger LOG = Logger.getLogger(PHPDocumentor.class);
+    private static final Logger LOG = Logger.getLogger(AS3Documentor.class);
 
     /**
      * full name of ArgoUML user
@@ -132,7 +135,7 @@ public final class PHPDocumentor {
      *
      * @throws Exception never thrown in this case
      */
-    public PHPDocumentor() throws Exception {
+    public AS3Documentor() throws Exception {
         super();
 
         create(null);
@@ -146,7 +149,7 @@ public final class PHPDocumentor {
      * @throws Exception IllegalArgumentException if the modelElement
      *                   is not a Classifier, Attribute or Operation
      */
-    public PHPDocumentor(Object modelElement) throws Exception {
+    public AS3Documentor(Object modelElement) throws Exception {
         super();
 
         create(modelElement);
@@ -161,7 +164,7 @@ public final class PHPDocumentor {
      * @throws Exception IllegalArgumentException if the modelElement
      *                   is of the wrong type
      */
-    public PHPDocumentor(Object modelElement, int iType) throws Exception {
+    public AS3Documentor(Object modelElement, int iType) throws Exception {
         super();
 
         create(modelElement, iType);
@@ -1462,8 +1465,8 @@ public final class PHPDocumentor {
         public AuthorTag() {
             super("author");
 
-            if (this.setName(PHPDocumentor.sArgoUserFullname)) {
-                this.setEmail(PHPDocumentor.sArgoUserEmail);
+            if (this.setName(AS3Documentor.sArgoUserFullname)) {
+                this.setEmail(AS3Documentor.sArgoUserEmail);
             } else {
                 this.setName("firstname and lastname of author");
                 this.setEmail("author@example.org");
