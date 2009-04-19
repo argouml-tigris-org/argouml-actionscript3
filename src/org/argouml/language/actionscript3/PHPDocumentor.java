@@ -303,7 +303,7 @@ public final class PHPDocumentor {
         int iSec  = calNow.get(Calendar.SECOND);
 
         String sProjectName = null;
-        Object objModel = Model.getFacade().getModel(modelElement);
+        Object objModel = Model.getFacade().getRoot(modelElement);
         if (objModel != null) {
             sProjectName = Model.getFacade().getName(objModel);
         }
@@ -1449,7 +1449,7 @@ public final class PHPDocumentor {
         /**
          * name of author
          */
-        private String sName = null;
+        private String authorName = null;
 
         /**
          * (optional) email address of author
@@ -1482,7 +1482,7 @@ public final class PHPDocumentor {
          */
         public boolean setName(String sAuthorName) {
             if (sAuthorName != null && sAuthorName.trim().length() > 0) {
-                this.sName  = sAuthorName.trim();
+                this.authorName  = sAuthorName.trim();
                 this.sEmail = null;
 
                 return true;
@@ -1516,11 +1516,11 @@ public final class PHPDocumentor {
          *         <code>null</code> otherwise;
          */
         public String getContent() {
-            if (this.sName != null) {
+            if (this.authorName != null) {
                 if (this.sEmail != null) {
-                    return this.sName + ", <" + this.sEmail + ">";
+                    return this.authorName + ", <" + this.sEmail + ">";
                 }
-                return this.sName;
+                return this.authorName;
             }
 
             return null;
