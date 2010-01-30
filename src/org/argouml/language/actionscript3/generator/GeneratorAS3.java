@@ -1,13 +1,13 @@
 /* $Id$
  *****************************************************************************
- * Copyright (c) 2009 Contributors - see below
+ * Copyright (c) 2009-2010 Contributors - see below
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    linus
+ *    Romain Flacher    
  *****************************************************************************
  *
  * Some portions of this file was previously release using the BSD License:
@@ -38,1449 +38,220 @@
 
 package org.argouml.language.actionscript3.generator;
 
+import static org.argouml.model.Model.getFacade;
+
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.TreeSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import org.apache.log4j.Logger;
-import org.argouml.language.actionscript3.AS3Documentor;
+import org.argouml.application.api.Argo;
+import org.argouml.configuration.Configuration;
+import org.argouml.language.actionscript3.template.SourceTemplate;
 import org.argouml.model.Model;
-import org.argouml.uml.UUIDHelper;
 import org.argouml.uml.generator.CodeGenerator;
+import org.argouml.uml.generator.SourceUnit;
 import org.argouml.uml.generator.TempFileUtils;
-
 
 /**
  * Generator for ActionScript3.
  *
- * Based on generator class for PHP 4.x & 5.x source code.
- * 
- * @author Kai Schr&ouml;der
- * @since ArgoUML 0.15.5
+ * @author Flacher Romain
+ *
  */
 public class GeneratorAS3 implements CodeGenerator {
-
-    /**
-     * Sets the indentation level to four spaces
-     */
-    protected static final String INDENT = "    ";
-
-    /**
-     * source section handler
-     */
-    private static Section objSection = null;
-
-    /**
-     * The log4j logger to log messages to
-     */
-    private static final Logger LOG = Logger.getLogger(GeneratorAS3.class);
-
-    // ----- class constructors ------------------------------------------------
-
-    /**
-     * Zero-argument class constructor
-     */
-    GeneratorAS3() {
-    }
-
-    private String generateSubmachine(Object m) {
-        Object c = Model.getFacade().getSubmachine(m);
-        if (c == null) {
-            return "include / ";
-        }
-        if (Model.getFacade().getName(c) == null) {
-            return "include / ";
-        }
-        if (Model.getFacade().getName(c).length() == 0) {
-            return "include / ";
-        }
-        return ("include / " + Model.getFacade().getName(c));
-    }
-
-
-    /*
-     * Generates operation
-     *
-     * @param modelElement Model element to generate notation for.
-     * @param bAddDocs     Add documentation in front of notation?
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateOperation(Object modelElement, boolean bAddDocs) {
-        if (!Model.getFacade().isAOperation(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Operation required");
-        }
-
-        String sOperation = "";
-
-        if (bAddDocs) {
-            AS3Documentor objPHPDoc = null;
-            try {
-                objPHPDoc = new AS3Documentor(modelElement);
-            } catch (Exception exp) {
-                LOG.error("Generating operation DocBlock FAILED: "
-                    + exp.getMessage());
-            } finally {
-                if (objPHPDoc != null) {
-                    sOperation += objPHPDoc.toString();
-                }
-            }
-        }
-
-        String sVisibility =
-            generateVisibility(Model.getFacade().getVisibility(modelElement));
-        if (sVisibility != null && sVisibility != "") {
-            sOperation += sVisibility + " ";
-        }
-
-	if (Model.getFacade().isStatic(modelElement)) {
-	    sOperation += "static ";
-	}
-	if (Model.getFacade().isLeaf(modelElement)) {
-	    sOperation += "final ";
-	}
-	if (Model.getFacade().isAbstract(modelElement)) {
-	    sOperation += "abstract ";
-	}
-
-        boolean bReturnByReference = false;
-
-        for (Object tv : Model.getFacade().getTaggedValuesCollection(
-                modelElement)) {
-            if ("&".equals(Model.getFacade().getTagOfTag(tv))
-                    && "true".equals(Model.getFacade().getValueOfTag(tv))) {
-                bReturnByReference = true;
-                break;
-            }
-        }
-
-        String sOperationName = NameGenerator.generate(modelElement);
-
-        if (bReturnByReference) {
-            sOperationName = "&" + sOperationName;
-        }
-
-        sOperation += "function " + sOperationName + "(";
-
-        Collection colParameters = 
-            Model.getFacade().getParameters(modelElement);
-        if (colParameters != null) {
-            boolean bFirst = true;
-            for (Object objParameter : colParameters) {
-                if (!Model.getFacade().isReturn(objParameter)) {
-                    if (!bFirst) {
-                        sOperation += ", ";
-                    } else {
-                        bFirst = false;
-                    }
-
-                    sOperation += generateParameter(objParameter);
-                }
-            }
-        }
-
-        sOperation += ")";
-
-        return sOperation;
-    }
-
-    /*
-     * Generates attribute
-     *
-     * @param modelElement Model element to generate notation for.
-     * @param bAddDocs     Add documentation in front of notation?
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateAttribute(Object modelElement, boolean bAddDocs) {
-        if (!Model.getFacade().isAAttribute(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Attribute required");
-        }
-
-        String sAttribute = "";
-
-        if (bAddDocs) {
-            AS3Documentor objPHPDoc = null;
-            try {
-                objPHPDoc = new AS3Documentor(modelElement);
-            } catch (Exception exp) {
-                LOG.error("Generating attribute DocBlock FAILED: "
-                    + exp.getMessage());
-            } finally {
-                if (objPHPDoc != null) {
-                    sAttribute += objPHPDoc.toString(INDENT);
-                }
-            }
-        }
-
-        if (Model.getFacade().isReadOnly(modelElement)) {
-            sAttribute += "const ";
-        } else {
-            String sVisibility = generateVisibility(Model.getFacade()
-                    .getVisibility(modelElement));
-            if (sVisibility != null && sVisibility != "") {
-                sAttribute += sVisibility + " ";
-            }
-
-	    if (Model.getFacade().isStatic(modelElement)) {
-		sAttribute += "static ";
-	    } else {
-                sAttribute += "var ";
-            }
-            sAttribute += "$";
-        }
-        
-        sAttribute += NameGenerator.generate(modelElement);
-
-        String sInitialValue = null;
-        Object exprInitialValue = 
-            Model.getFacade().getInitialValue(modelElement);
-        if (exprInitialValue != null) {
-            sInitialValue = generateDefaultValue(
-                    Model.getFacade().getType(modelElement),
-                    generateExpression(exprInitialValue).trim(), false);
-        } else {
-            sInitialValue = generateDefaultValue(
-                    Model.getFacade().getType(modelElement), null, false);
-        }
-
-        if (sInitialValue != null && sInitialValue.length() > 0) {
-            sAttribute += " = " + sInitialValue;
-        } else {
-            sAttribute += "[ ";
-            sAttribute += (exprInitialValue != null) ? "!= null" : "null";
-            sAttribute += " | ";
-            sAttribute += generateDefaultValue(
-                Model.getFacade().getType(modelElement),
-                    generateExpression(exprInitialValue).trim(), false);
-            sAttribute += " | ";
-            sAttribute += generateDefaultValue(
-                Model.getFacade().getType(modelElement),
-                    generateExpression(exprInitialValue).trim(), true);
-            sAttribute += " ]";
-        }
-
-        sAttribute += ";";
-
-        return sAttribute;
-    }
-
-    private static String generateExpression(Object expr) {
-        if (Model.getFacade().isAExpression(expr))
-            return generateUninterpreted(
-                    (String) Model.getFacade().getBody(expr));
-        else if (Model.getFacade().isAConstraint(expr))
-            return generateExpression(Model.getFacade().getBody(expr));
-        return "";
+    private static final String LINE_SEPARATOR =
+        System.getProperty("line.separator");
+    protected static final String INDENT = "\t";
+    
+    private static final Set<String> BASE_TYPES;
+    static {
+        Set<String> types = new HashSet<String>();
+        types.add("Number");
+        types.add("Boolean");
+        types.add("String");
+        types.add("uint");
+        types.add("int");
+        types.add("Array");
+        types.add("Vector");
+        types.add("Object");
+        types.add("XML");
+        types.add("XMLList");
+        BASE_TYPES = Collections.unmodifiableSet(types);
     }
     
-    private static String generateUninterpreted(String un) {
-        if (un == null)
-            return "";
-        return un;
-    }
     
-    /*
-     * Generates parameter
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateParameter(Object modelElement) {
-        if (!Model.getFacade().isAParameter(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Parameter required");
-        }
-
-        String sParameter = "";
-
-        if (Model.getFacade().isReturn(modelElement)) {
-            Object objType = Model.getFacade().getType(modelElement);
-            if (objType == null 
-                    || Model.getFacade().getName(objType).equals("void")) {
-                return "";
-            } 
-            String sType = convertType(objType);
-            if (sType != null && !"".equals(sType.trim())) {
-                return "return (" + sType + ") $returnValue;";
-            } 
-            return "return $returnValue;";
-        }
-        
-	String sTypeHint = null;
-                
-	try {
-	    sTypeHint = NameGenerator.generateClassifierName(
-		    Model.getFacade().getType(modelElement));
-	} catch (Exception exp) {
-	    LOG.error("Finding type hint FAILED: " + exp.getMessage());
-	} finally {
-	    if (sTypeHint != null
-		&& sTypeHint != ""
-		&& convertType(Model.getFacade().getType(modelElement))
-		== null) {
-		sParameter += " " + sTypeHint + " ";
-	    }
-        }
-        
-        sParameter += "$" + Model.getFacade().getName(modelElement);
-        
-        String sDefaultValue =
-            generateExpression(Model.getFacade().getDefaultValue(modelElement));
-        if (sDefaultValue != null && sDefaultValue.length() > 0) {
-            sParameter += " = " + sDefaultValue;
-        } else {
-            boolean bAddDefaultValue = false;
-                
-            Collection colParameters = Model.getFacade().getParameters(
-                    Model.getFacade().getBehavioralFeature(modelElement));
-            if (colParameters != null) {
-                for (Object objParameter : colParameters) {
-                    if (!Model.getFacade().isReturn(objParameter)) {
-                        if (!modelElement.equals(objParameter)) {
-                            if (Model.getFacade()
-                                   .getDefaultValue(objParameter) != null) {
-                                bAddDefaultValue = true;
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-                
-            if (bAddDefaultValue) {
-                sParameter += " = " + generateDefaultValue(
-                    Model.getFacade().getType(modelElement), null, false);
-            }
-        }
-        
-        return sParameter;
+    private static final Map<Object,String> classVisibility;
+    static {
+        Map<Object, String> types = new HashMap<Object, String>();
+        types.put(Model.getVisibilityKind().getPrivate(),"internal ");
+        types.put(Model.getVisibilityKind().getPublic(),"public ");
+        types.put(Model.getVisibilityKind().getPackage(),"internal ");
+        types.put(Model.getVisibilityKind().getProtected(),"internal ");
+        classVisibility = Collections.unmodifiableMap(types);
     }
-
-    /*
-     * Generates package
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     *
-     * TODO: fix org.argouml.model.Facade#getType
-     */
-    private String generatePackage(Object modelElement) {
-        String sPackage = "";
-
-        if (!Model.getFacade().isAPackage(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Package required");
-        }
-
-        String sPackageName = NameGenerator.generate(modelElement);
-
-        AS3Documentor objPHPDoc = null;
-        try {
-            objPHPDoc = new AS3Documentor(modelElement);
-        } catch (Exception exp) {
-            LOG.error("Generating package DocBlock FAILED: "
-                    + exp.getMessage());
-        } finally {
-            if (objPHPDoc != null) {
-                sPackage += objPHPDoc.toString() + "\n";
-            }
-        }
-
-        Collection colElements = 
-            Model.getFacade().getOwnedElements(modelElement);
-        if (colElements.size() == 0) {
-            sPackage += "// this package contains no elements\n";
-        } else {
-            Iterator itElements = colElements.iterator();
-            while (itElements.hasNext()) {
-                Object objElement = itElements.next();
-                if (Model.getFacade().isAPackage(objElement)) {
-                    sPackage += generatePackage(objElement) + "\n";
-                } else if (Model.getFacade().isAClassifier(objElement)) {
-                    sPackage += generateClassifier(objElement) + "\n";
-                } else {
-                    sPackage += "/*\n";
-                    sPackage += "feature not supported by PHP:\n";
-                    sPackage += "-----------------------------\n";
-                    sPackage += Model.getFacade().getName(objElement);
-                    sPackage += " [" + objElement + "]\n";
-                    sPackage += "*/\n";
-                }
-                if (itElements.hasNext()) {
-                    sPackage += "\n";
-                }
-            }
-        }
-
-        sPackage += "\n/* end of package " + sPackageName + " */";
-
-        return sPackage;
+    private static final Map<Object,String> innerClassVisibility;
+    static {
+        Map<Object, String> types = new HashMap<Object, String>();
+        types.put(Model.getVisibilityKind().getPrivate(),"internal ");
+        types.put(Model.getVisibilityKind().getPublic(),"internal ");
+        types.put(Model.getVisibilityKind().getPackage(),"internal ");
+        types.put(Model.getVisibilityKind().getProtected(),"internal ");
+        innerClassVisibility = Collections.unmodifiableMap(types);
     }
-
-    /*
-     * Generates class or interface
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateClassifier(Object modelElement) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sClassifier = "";
-
-        String sClassType = "";
-
-	if (Model.getFacade().isAClass(modelElement)) {
-	    if (Model.getFacade().isLeaf(modelElement)) {
-		sClassType = "final class";
-	    } else {
-		sClassType = "class";
-	    }
-	    if (Model.getFacade().isAbstract(modelElement)) {
-		sClassType = "abstract " + sClassType;
-	    }
-	} else if (Model.getFacade().isAInterface(modelElement)) {
-	    sClassType = "interface";
-	    if (Model.getFacade().isLeaf(modelElement)) {
-		sClassType = "final " + sClassType;
-	    }
-	} else {
-	    return null;
-	}
-
-        AS3Documentor objPHPDoc = null;
-        try {
-            objPHPDoc = new AS3Documentor(modelElement);
-        } catch (Exception exp) {
-            LOG.error("Generating classifier DocBlock FAILED: "
-                    + exp.getMessage());
-        } finally {
-            if (objPHPDoc != null) {
-                sClassifier += objPHPDoc.toString();
-            }
-        }
-
-        String sClassName = NameGenerator.generate(modelElement);
-
-        sClassifier += sClassType + " " + sClassName + "\n";
-
-        sClassifier += generateClassifierGeneralisations(modelElement);
-        sClassifier += generateClassifierSpecifications(modelElement);
-
-        sClassifier += "{\n";
-
-        sClassifier += generateClassifierAssociations(modelElement);
-        sClassifier += generateClassifierAttributes(modelElement);
-        sClassifier += generateClassifierOperations(modelElement);
-
-        sClassifier += "\n} /* end of " + sClassType + " " + sClassName + " */";
-
-        return sClassifier;
+    private static final Map<Object,String> attributesVisibility;
+    static {
+        Map<Object, String> types = new HashMap<Object, String>();
+        types.put(Model.getVisibilityKind().getPrivate(),"private ");
+        types.put(Model.getVisibilityKind().getPublic(),"public ");
+        types.put(Model.getVisibilityKind().getPackage(),"internal ");
+        types.put(Model.getVisibilityKind().getProtected(),"protected ");
+        attributesVisibility = Collections.unmodifiableMap(types);
     }
-
-
-    private String generateClassifierAssociations(Object element) {
-        StringBuilder text = new StringBuilder();
-
-        if (Model.getFacade().isAClass(element)) {
-            text.append(INDENT).append("// --- ASSOCIATIONS ---\n");
-
-            for (Object assocEnd : Model.getFacade().getAssociationEnds(
-                    element)) {
-                Object oppositeEnd = getNavigableOppositeEnd(assocEnd);
-                if (oppositeEnd != null) {
-                    text.append(INDENT);
-                    text.append(generateAssociationEnd(oppositeEnd));
-                }
-            }
-        }
-        return text.append("\n\n").toString();
+    private static final Map<Object,String> functionVisibility;
+    static {
+        Map<Object, String> types = new HashMap<Object, String>();
+        types.put(Model.getVisibilityKind().getPrivate(),"private ");
+        types.put(Model.getVisibilityKind().getPublic(),"public ");
+        types.put(Model.getVisibilityKind().getPackage(),"internal ");
+        types.put(Model.getVisibilityKind().getProtected(),"protected ");
+        functionVisibility = Collections.unmodifiableMap(types);
     }
+    private  Set<Object> importSet;
+    private  Map<String, Object> FunctionGeneralisationMap;
     
-    /**
-     * Return the opposite navigable end or null.  If this associationEnd
-     * is a part of a binary association and the opposite end is navigable, 
-     * return that end, otherwise return null.
-     */
-    private Object getNavigableOppositeEnd(Object assEnd) {
-        Collection otherEnds = Model.getFacade().getOtherAssociationEnds(
-                assEnd);
-        Object returnValue = null;
-        if (otherEnds.size() == 1) {
-            Object oppositeEnd = otherEnds.iterator().next();
-            if (Model.getFacade().isNavigable(oppositeEnd)) {
-                returnValue = oppositeEnd;
-            }
-        }
-        return returnValue;
-    }
+  
     
-    /*
-     * Generates association
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateAssociation(Object modelElement) {
-        // TODO: Auto-generated method stub
-        LOG.debug("generateAssociation(Association modelElement)");
-
-        if (!Model.getFacade().isAAssociation(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Association required");
-        }
-        
-       
-        String name = Model.getFacade().getName(modelElement);
-        if (name == null) {
-            name = "";            
-        }
-
-        return "// generateAssociation : " + name;
-    }
-
-    /*
-     * Generates association end
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateAssociationEnd(Object modelElement) {
-        // TODO: Auto-generated method stub
-        LOG.debug("generateAssociationEnd(AssociationEnd modelElement)");
-
-        if (!Model.getFacade().isAAssociationEnd(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, AssociationEnd required");
-        }
-
-        StringBuffer text = new StringBuffer();        
-        AS3Documentor objPHPDoc = null;
-        try {
-            objPHPDoc = new AS3Documentor(modelElement);
-        } catch (Exception exp) {
-            LOG.error("Generating AssociationEnd DocBlock FAILED: "
-                    + exp.getMessage());
-        } finally {
-            if (objPHPDoc != null) {
-                text.append(objPHPDoc.toString());
-            }
-        }
-        
-        ///// TODO: This can be generated in much the same way as an Attribute
-        
-        String name = Model.getFacade().getName(modelElement);
-        if (name == null) {
-            name = "";    
-        }
-
-        return "// generateAssociationEnd : " + name;
-    }
-
-    /*
-     * Generates multiplicity
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateMultiplicity(Object modelElement) {
-        // TODO: Auto-generated method stub
-        LOG.debug("generateMultiplicity(Multiplicity modelElement)");
-
-        if (!Model.getFacade().isAMultiplicity(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Multiplicity required");
-        }
-
-        return "// generateMultiplicity(Multiplicity modelElement)";
-    }
-
-    /*
-     * Generates visibility
-     *
-     * @param modelElement Model element to generate notation for.
-     *
-     * @return Generated notation for model element.
-     */
-    private String generateVisibility(Object modelElement) {
-        if (!Model.getFacade().isAVisibilityKind(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, VisibilityKind required");
-        }
-
-	if (Model.getVisibilityKind().getPublic().equals(modelElement)) {
-	    return "public";
-	} else if (Model.getVisibilityKind().getProtected()
-		   .equals(modelElement)) {
-	    return "protected";
-	} else if (Model.getVisibilityKind().getPrivate()
-		   .equals(modelElement)) {
-	    return "private";
-	}
-
-        return "";
-    }
-
-
-    /*
-     * Generate the file.
-     *
-     * @param modelElement Model element to generate notation for.
-     * @param sPath        output base directory
-     *
-     * @return name of generated file on success;
-     *         <code>null</code> otherwise.
-     */
-    private String generateFile(Object modelElement, String sPath) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sFilename = NameGenerator.generateFilename(modelElement, sPath);
-
-        if (sFilename == null || sFilename.length() == 0) {
-            LOG.error("Can't generate a nameless class");
-
-            return null;
-        }
-
-        File f = new File(sFilename);
-        if (f.exists()) {
-            LOG.info(getName() + " updates " + f.getPath());
-            try {
-                updateFile(modelElement, f);
-            } catch (Exception exp) {
-                LOG.error("Update " + f.getPath() + " failed: "
-                        + exp.getMessage());
-
-                return null;
-            }
-
-            LOG.debug("Update " + f.getPath() + " successfull");
-
-            return sFilename;
-        }
-
-        LOG.info(getName() + " creates " + f.getPath());
-
-        File fPath = new File(sPath);
-        if (!fPath.isDirectory()) {
-            if (!fPath.mkdirs()) {
-                LOG.error(getName() + " could not make directory "
-                        + sPath);
-                return null;
-            }
-        }
-
-        try {
-            if (createFile(modelElement, f)) {
-                LOG.debug("Creating " + f.getPath() + " successfull");
-                return sFilename;
-            }
-        } catch (Exception e) {
-            LOG.error("Creating " + f.getPath() + " failed", e);
-            return null;
-        }
-        LOG.error("Creating " + f.getPath() + " failed");
-        return null;
-    }
-
-    private  String getName() {
-        return "AS3";
-    }
+    private  String classTemplate = 
+            "package {package}"+LINE_SEPARATOR+
+            "{{imports}{mainClass}"+LINE_SEPARATOR+
+            "}{innerImports}{innerClass}"        
+            ;
     
-
-    // -------------------------------------------------------------------------
-
-    /**
-     * Converts a type model element to a PHP type
-     *
-     * @param modelElement The model element to convert to a PHP type.
-     *
-     * @return The PHP type converted from the model element.
-     */
-    protected final String convertType(Object modelElement) {
-        String sName = Model.getFacade().getName(modelElement).trim();
-
-        if (sName.equals("void")) {
-            return null;
-        }
-
-        if (sName.equals("char")) {
-            return "string";
-        }
-
-        if (sName.equals("boolean")) {
-            return "bool";
-        }
-        if (sName.equals("bool")) {
-            return "bool";
-        }
-
-        if (sName.equals("int")) {
-            return "int";
-        }
-        if (sName.equals("byte")) {
-            return "int";
-        }
-        if (sName.equals("short")) {
-            return "int";
-        }
-        if (sName.equals("long")) {
-            return "int";
-        }
-
-        if (sName.equals("float")) {
-            return "float";
-        }
-        if (sName.equals("double")) {
-            return "float";
-        }
-
-        /* user defined type string, not (java.lang.)String */
-        if (sName.equals("string")) {
-            return "string";
-        }
-
-        /* user defined type array */
-        if (sName.equals("array")) {
-            return "array";
-        }
-
-        return null;
+    private  String bodyClassTemplate =  
+        LINE_SEPARATOR+"{doc}{dynamic}{visibility}{final}{classType}{name}{extends}{implements}"+
+        LINE_SEPARATOR+"{{attributes}{functions}" +
+        LINE_SEPARATOR+"}"
+            ;
+    
+    private  String varTemplate =LINE_SEPARATOR+"{doc}{visibility}{static}{changeability}{name} : {type}{initValue};";
+    
+    private  String functionTemplate =
+        LINE_SEPARATOR+"{doc}{override}{visibility}{static}{final}function {name}({arguments}) : {returnType}" +
+        LINE_SEPARATOR+"{{code}{returnValue}" +
+        LINE_SEPARATOR+"};"
+            ;
+    private  String functionInterfaceTemplate =
+        LINE_SEPARATOR+"{doc}{static}{final}function {name}({arguments}) : {returnType};"
+        ;
+    private  String functionAgrumentTemplate =
+            "{argumentSeparator}{name}{typeAssignment}{type}{initValue}"
+            ;
+    private  String importTemplate =
+        LINE_SEPARATOR+INDENT+"import {importPath}{ClassName}";
+    
+    private  String packageElementTemplate =
+        "{name}";
+    
+    private static final Map<String,String> languageDeffinitionToken;
+    static {
+        Map<String, String> types = new HashMap<String, String>();
+        types.put("dynamic","dynamic ");
+        types.put("extends","extends ");
+        types.put("implements","implements ");
+        types.put("interface","interface ");
+        types.put("class","class ");
+        types.put("property","var ");
+        types.put("constant","const ");
+        types.put("override","override ");
+        types.put("final","final ");
+        types.put("static","static ");
+        types.put("argumentSeparator",", ");
+        types.put("packageClassSeparator",".");
+        types.put("defaultType","*");
+        types.put("fileExtension",".as");
+        types.put("attributeAssignment"," = ");
+        types.put("FunctionNoReturnType","Void");
+        types.put("parameterAssignment"," = ");
+        types.put("typeAssignment"," : ");
+        types.put("defaultType","*");
+        languageDeffinitionToken = Collections.unmodifiableMap(types);
     }
-
-    /*
-     * Generates the default value for a type
-     *
-     * @param modelElement classifier representing a type
-     * @param sDefault     default value
-     * @param bCast        prefix value with cast statement
-     *
-     * @return default value with explicite cast (if needed)
-     */
-    private final String generateDefaultValue(Object modelElement,
-            String sDefault, boolean bCast) {
-        if (modelElement == null) {
-            return null;
-        }
-
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sType = convertType(modelElement);
-        if (sType == null) {
-            return "null";
-        } else if (sType.equals("string")) {
-            String sReturn = bCast ? "(string) " : "";
-            if (sDefault != null) {
-                int iFirstApos = sDefault.indexOf("'");
-                while (iFirstApos != -1) {
-                    sDefault = sDefault.substring(0, iFirstApos)
-                            + "\\" + sDefault.substring(iFirstApos);
-                    iFirstApos = sDefault.indexOf("'", iFirstApos + 2);
-                }
-                return sReturn + "'" + sDefault + "'";
-            }
-            return sReturn + "''";
-        } else if (sType.equals("bool")) {
-            String sReturn = bCast ? "(bool) " : "";
-            if (sDefault != null) {
-            	sDefault = sDefault.trim();
-                if (sDefault.length() > 0) {
-                    if ("0".equals(sDefault)) {
-                        return sReturn + "false";
-                    } else if ("false".equals(sDefault)) {
-			return sReturn + "false";
-		    } else {
-			return sReturn + "true";
-		    }
-                }
-                return sReturn + "false";
-            } 
-            return sReturn + "false";
-        } else if (sType.equals("int")) {
-            String sReturn = bCast ? "(int) " : "";
-            if (sDefault != null && sDefault.trim().length() > 0) {
-                return sReturn + sDefault.trim();
-            }
-            return sReturn + String.valueOf(0);
-        } else if (sType.equals("float")) {
-            String sReturn = bCast ? "(float) " : "";
-            if (sDefault != null && sDefault.trim().length() > 0) {
-                return sReturn + sDefault.trim();
-            }
-            return sReturn + "0.0";
-        } else if (sType.equals("array")) {
-            if (sDefault != null && !"".equals(sDefault.trim())) {
-                return "array(" + sDefault + ")";
-            }
-            return "array()";
-        }
-
-        return "null";
-    }
-
-    /*
-     * Generates section for an operation element
-     *
-     * @param modelElement The model element to generate the section for.
-     *
-     * @return Generated section code for the model element.
-     */
-    private String generateSection(Object modelElement) {
-        return generateSection(modelElement, INDENT, null);
-    }
-
-    /*
-     * Generates section
-     *
-     * @param modelElement The model element to generate the section for.
-     * @param sIndent      String to indent every section block line with.
-     * @param sSuffix      Section identifier suffix
-     *
-     * @return Generated section code for the model element.
-     */
-    private String generateSection(Object modelElement, String sIndent,
-                                   String sSuffix) {
-        String uuid = UUIDHelper.getUUID(modelElement);
-
-        if (sSuffix != null && sSuffix.trim() != "") {
-            return Section.generate(uuid + "-" + sSuffix.trim(), sIndent);
-        }
-        return Section.generate(uuid, sIndent);
-    }
-
-    /*
-     * Creates new source file.
-     *
-     * @param modelElement The class or interface.
-     * @param file         The file object to write to.
-     *
-     * @return <code>true</code> on success,
-     *         <code>false</code> otherwise;
-     */
-    private boolean createFile(Object modelElement, File file) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        LOG.info("    Generating new " + file.getPath());
-
-        String sOutput = "<?php\n\n";
-
-        sOutput += "error_reporting(E_ALL);\n\n";
-
-        AS3Documentor objPHPDoc = null;
-        try {
-            objPHPDoc = new AS3Documentor(modelElement,
-                    AS3Documentor.BLOCK_TYPE_FILE);
-        } catch (Exception exp) {
-            LOG.error("Generating file DocBlock FAILED: "
-                    + exp.getMessage());
-        } finally {
-            if (objPHPDoc != null) {
-                try {
-                    objPHPDoc.setFilename(NameGenerator
-                        .generateFilename(modelElement));
-                } catch (Exception exp) {
-                    LOG.error("Setting filename for DocBlock FAILED: "
-                            + exp.getMessage());
-                } finally {
-                    sOutput += objPHPDoc.toString() + "\n";
-                }
-            }
-        }
-
-        sOutput += generateRequired(modelElement);
-
-        sOutput += "/* user defined includes */\n";
-        sOutput += generateSection(modelElement, "", "includes") + "\n";
-
-        sOutput += "/* user defined constants */\n";
-        sOutput += generateSection(modelElement, "", "constants") + "\n";
-
-        sOutput += generateClassifier(modelElement);
-        sOutput += "\n\n?>";
-
-        boolean bReturn = true;
-        BufferedWriter bwOutput = null;
-        try {
-            File parentDir = new File(file.getParent());
-            if (!parentDir.exists()) {
-                parentDir.mkdirs();
-            }
-
-            bwOutput = new BufferedWriter(new FileWriter(file));
-            bwOutput.write(sOutput);
-        } catch (IOException exp) {
-            LOG.error("    Catched IOException: " + exp
-                    + ", for file " + file.getPath());
-            bReturn = false;
-        } finally {
-            try {
-                if (bwOutput != null) {
-                    bwOutput.close();
-                }
-            } catch (IOException exp) {
-                LOG.error("    Catched IOException: " + exp
-                        + ", for file " + file.getPath());
-
-                bReturn = false;
-            }
-        }
-
-        return bReturn;
-    }
-
-    /*
-     * Updates the output file for a model element.
-     *
-     * @param modelElement The model element to update file for.
-     * @param fileOrig     The original (previous) output file.
-     *
-     * @throws Exception
-     */
-    private void updateFile(Object modelElement, File fileOrig)
-        throws Exception {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                + " has wrong object type, Classifier required");
-        }
-
-        objSection = new Section();
-
-        File fileNew    = new File(fileOrig.getAbsolutePath() + ".out");
-        File fileBackup = new File(fileOrig.getAbsolutePath() + ".bak");
-
-        LOG.debug("    Parsing sections from " + fileOrig.getPath());
-        objSection.read(fileOrig.getAbsolutePath());
-
-        if (fileBackup.exists()) {
-            LOG.debug("    Delete (old) backup " + fileBackup.getPath());
-            fileBackup.delete();
-        }
-
-        LOG.debug("    Backup " + fileOrig.getPath() + " to "
-                + fileBackup.getPath());
-        fileOrig.renameTo(fileBackup);
-
-        if (this.createFile(modelElement, fileOrig)) {
-            LOG.debug("    Merging sections into " + fileNew.getPath());
-            objSection.write(fileOrig.getAbsolutePath(), INDENT, true);
-
-            LOG.debug("    Renaming " + fileNew.getPath()
-                    + " to " + fileOrig.getPath());
-            fileOrig.delete();
-            fileNew.renameTo(fileOrig);
-        } else {
-            if (fileBackup.exists()) {
-                LOG.debug("    Renaming (restore) " + fileBackup.getPath()
-                        + " to " + fileOrig.getPath());
-                fileBackup.renameTo(fileOrig);
-            }
-
-            LOG.error("    Updating " + fileOrig.getPath() + " failed");
-        }
-    }
-
-    /*
-     * Generates classifier attributes
-     *
-     * @param modelElement classifier
-     *
-     * @return source code for class attributes
-     */
-    private String generateClassifierAttributes(Object modelElement) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sClsAttr = "";
-
-        if (Model.getFacade().isAClass(modelElement)) {
-            sClsAttr += INDENT + "// --- ATTRIBUTES ---\n";
-
-            Collection colAttributes =
-                Model.getFacade().getAttributes(modelElement);
-
-            if (colAttributes != null) {
-                Iterator itAttributes = colAttributes.iterator();
-                while (itAttributes.hasNext()) {
-                    Object attr = itAttributes.next();
-
-                    sClsAttr += "\n";
-
-                    AS3Documentor objPHPDoc = null;
-                    try {
-                        objPHPDoc = new AS3Documentor(attr);
-                    } catch (Exception exp) {
-                        LOG.error("Generating attribute DocBlock FAILED: "
-                                + exp.getMessage());
-                    } finally {
-                        if (objPHPDoc != null) {
-                            sClsAttr += objPHPDoc.toString(INDENT);
-                        }
-                    }
-
-                    sClsAttr += INDENT + generateAttribute(attr, false) + "\n";
-                }
-            }
-
-            sClsAttr += "\n";
-        }
-
-        return sClsAttr;
-    }
-
-    /*
-     * Generates classifier generalisations
-     *
-     * @param modelElement classifier
-     *
-     * @return source code for extends part of class declaration
-     */
-    private String generateClassifierGeneralisations(Object modelElement) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sClsGen = "";
-
-        Collection colGeneralizations =
-            Model.getFacade().getGeneralizations(modelElement);
-        if (colGeneralizations != null) {
-            Iterator itGen = colGeneralizations.iterator();
-            if (itGen.hasNext()) {
-                if (colGeneralizations.size() == 1) {
-                    sClsGen += INDENT + "extends ";
-                } else {
-                    sClsGen += INDENT + "/* multiple generalisations not"
-                            + " supported by PHP: */\n";
-                    sClsGen += INDENT + "/* extends ";
-                }
-
-                while (itGen.hasNext()) {
-                    Object elmGen = Model.getFacade().getGeneral(itGen.next());
-                    if (elmGen != null) {
-                        sClsGen += NameGenerator.generate(elmGen);
-                        if (itGen.hasNext()) {
-                            sClsGen += ",\n" + INDENT + "        ";
-                        }
-                    }
-                }
-
-                if (colGeneralizations.size() > 1) {
-                    sClsGen += " */";
-                }
-
-                sClsGen += "\n";
-            }
-        }
-
-        return sClsGen;
-    }
-
-    /*
-     * Generates classifier operations
-     *
-     * @param modelElement classifier
-     *
-     * @return source code for all class methods
-     */
-    private String generateClassifierOperations(Object modelElement) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sClsOp = "";
-
-        sClsOp += INDENT + "// --- OPERATIONS ---\n";
-
-        /* generate constructor */
-        Object objTaggedValue =
-            Model.getFacade().getTaggedValue(modelElement, "constructor");
-        if (objTaggedValue != null) {
-            String sTaggedValueConstructor =
-                Model.getFacade().getValueOfTag(objTaggedValue);
-
-            if (sTaggedValueConstructor != null
-                    && sTaggedValueConstructor.equals("true")) {
-                if (findConstructor(modelElement) == null) {
-                    String sConstructor = null;
-
-		    sConstructor = "public function __construct";
-
-                    sClsOp += "\n";
-                    sClsOp += INDENT + "/**\n";
-                    sClsOp += INDENT + " * Class constructor\n";
-                    sClsOp += INDENT + " *\n";
-                    sClsOp += INDENT + " * @access public\n";
-                    sClsOp += INDENT + " *\n";
-                    sClsOp += INDENT + " * @return void\n";
-                    sClsOp += INDENT + " *\n";
-                    sClsOp += INDENT + " * @author ArgoUML PHP Module"
-                                    + " (revised $Date$)\n";
-                    sClsOp += INDENT + " */\n";
-
-                    sClsOp += INDENT + sConstructor + "()\n";
-                    sClsOp += INDENT + "{\n";
-                    sClsOp += generateSection(modelElement, INDENT,
-                        sConstructor.substring(sConstructor.lastIndexOf(" ")));
-                    sClsOp += INDENT + "}\n";
-                }
-            }
-        }
-
-        if (Model.getFacade().isAClass(modelElement)) {
-            for (Object spec : Model.getFacade()
-                    .getSpecifications(modelElement)) {
-                for (Object operation : Model.getFacade().getOperations(spec)) {
-                    sClsOp += "\n";
-
-                    AS3Documentor objPHPDoc = null;
-                    try {
-                        objPHPDoc = new AS3Documentor(operation);
-                    } catch (Exception exp) {
-                        LOG.error("Generating operation DocBlock " + "FAILED: "
-                                + exp.getMessage());
-                    } finally {
-                        if (objPHPDoc != null) {
-                            sClsOp += objPHPDoc.toString(INDENT);
-                        }
-                    }
-
-                    sClsOp += INDENT + generateOperation(operation, false);
-                    sClsOp += generateMethodBody(operation, true);
-                }
-            }
-        }
-
-        for (Object operation : Model.getFacade().getOperations(modelElement)) {
-
-            sClsOp += "\n";
-            AS3Documentor objPHPDoc = null;
-            try {
-                objPHPDoc = new AS3Documentor(operation);
-            } catch (Exception exp) {
-                LOG.error("Generating operation DocBlock FAILED: "
-                        + exp.getMessage());
-            } finally {
-                if (objPHPDoc != null) {
-                    sClsOp += objPHPDoc.toString(INDENT);
-                }
-            }
-
-            sClsOp += INDENT + generateOperation(operation, false);
-
-            if (Model.getFacade().isAClass(modelElement)) {
-                sClsOp += generateMethodBody(operation, false);
-            } else {
-		sClsOp += ";\n";
-            }
-        }
+    private static final Map<String,String> JavaDocToken;
+    static {
+        Map<String, String> types = new HashMap<String, String>();
+        types.put("param","@param ");
+        types.put("return","@return ");
+        types.put("author","@author ");
+        types.put("version","@version ");
+        types.put("see","@see ");
+        types.put("since","@since ");
+        types.put("deprecated","@deprecated ");
         
-        return sClsOp;
+        types.put("default","@default ");
+        types.put("example","@example ");
+        types.put("link","@link ");
+        types.put("inheritDoc","@inheritDoc ");
+        
+        /* @param @return @throws @exception @author @version @see @since @serial @serialField @serialData @deprecated {@link}*/
+        JavaDocToken = Collections.unmodifiableMap(types);
     }
+    private String classDocTemplate =
+        " * @langversion\tActionScript 3.0"+LINE_SEPARATOR+
+        " * @playerversion\tFlash 10"+LINE_SEPARATOR+
+        "{author}{version}{see}{since}{deprecated}{example}";
+        
+        private String fieldDocTemplate =
+        "{see}{since}{deprecated}{default}";
 
-    /*
-     * Generates classifier specifications
-     *
-     * @param modelElement The model element to generate specifications for.
-     *
-     * @return source code for implements part of class declaration
-     */
-    private String generateClassifierSpecifications(Object modelElement) {
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        String sClsSpec = "";
-
-        if (Model.getFacade().isAClass(modelElement)) {
-            Collection colSpecifications =
-                Model.getFacade().getSpecifications(modelElement);
-            Iterator itSpecifications = colSpecifications.iterator();
-            if (itSpecifications.hasNext()) {
-                sClsSpec += INDENT + INDENT;
-                sClsSpec += "implements ";
-
-                while (itSpecifications.hasNext()) {
-                    Object ifSpecification = itSpecifications.next();
-                    sClsSpec += NameGenerator.generate(ifSpecification);
-
-                    if (itSpecifications.hasNext()) {
-                        sClsSpec += ",\n" + INDENT + INDENT + "           ";
-                    }
-                }
-
-                sClsSpec += "\n";
-            }
-            
-        }
-
-        return sClsSpec;
-    }
-
-    /*
-     * Generates single require_once statement for class or interface
-     *
-     * @param modelElement The required class or interface.
-     * @param bAddDocs     Add DocBlock before the require_once statement.
-     *
-     * @return single require_once statement
-     */
-    private String generateRequireOnceStatement(Object modelElement,
-                                                boolean bAddDocs) {
-        String sRequired = "";
-
-        if (bAddDocs) {
-            AS3Documentor objPHPDoc = null;
-            try {
-                objPHPDoc = new AS3Documentor(modelElement,
-                        AS3Documentor.BLOCK_TYPE_INCLUDE);
-            } catch (Exception exp) {
-                LOG.error("Generating include DocBlock FAILED: "
-                        + exp.getMessage());
-            } finally {
-                if (objPHPDoc != null) {
-                    sRequired += objPHPDoc.toString();
-                }
-            }
-        }
-
-        String sFilename = NameGenerator.generateFilename(modelElement);
-
-        if (FILE_SEPARATOR != "/") {
-            int iFirstFS = sFilename.indexOf(FILE_SEPARATOR);
-            while (iFirstFS != -1) {
-                sFilename = sFilename.substring(0, iFirstFS) + "/"
-                        + sFilename.substring(iFirstFS + 1);
-                iFirstFS = sFilename.indexOf(FILE_SEPARATOR, iFirstFS + 1);
-            }
-        }
-
-        sRequired += "require_once('" + sFilename + "');\n";
-
-        return sRequired;
-    }
-
-    /*
-     * Generates method body for an operation element
-     *
-     * @param modelElement    Model element to generate body notation for.
-     * @param bIgnoreAbstract Ignore abstract to generate implementations of
-     *                        abstract methods.
-     *
-     * @return Generated body notation for model element.
-     */
-    private String generateMethodBody(Object modelElement,
-                                      boolean bIgnoreAbstract) {
-        if (!Model.getFacade().isAOperation(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Operation required");
-        }
-
-        String sMethodBody = "";
-
-        if (!Model.getFacade().isAbstract(modelElement) || bIgnoreAbstract) {
-            sMethodBody += "\n" + INDENT + "{\n";
-
-            Collection parameters = 
-                Model.getFacade().getParameters(modelElement);
-            Object returnParameter = null;
-            for (Object parameter : parameters) {
-                if (Model.getFacade().isReturn(parameter)) {
-                    if (returnParameter != null) {
-                        throw new IllegalStateException(
-                                "Found more than 1 return parameter in method "
-                                        + Model.getFacade().getName(
-                                                modelElement));
-                    } else {
-                        returnParameter = parameter;
-                    }
-                }   
-            }
-            
-            String returnDefault = null;
-            String returnValue = null;
-            if (returnParameter != null) {
-                returnDefault = generateDefaultValue(
-                        Model.getFacade().getType(returnParameter), 
-                        null, true);
-                returnValue = generateParameter(returnParameter);
-            }
-
-            if (returnDefault != null && returnValue.trim() != "") {
-                sMethodBody += INDENT + INDENT + "$returnValue = "
-                        + returnDefault + ";\n\n";
-            }
-
-            sMethodBody += generateSection(modelElement);
-
-            if (returnValue != null && returnValue != "") {
-                sMethodBody += "\n" + INDENT + INDENT + returnValue + "\n";
-            }
-
-            sMethodBody += INDENT + "}\n";
+        private String methodDocTemplate =
+        "{inheritDoc}{param}{return}{throws}{see}{since}{deprecated}{example}";
 
             
-        } else {
-	    sMethodBody += ";\n";
-        }
+            
+    private  String docTemplate =
+            "/**" +LINE_SEPARATOR+
+            "{doc}"+
+            " *"+LINE_SEPARATOR+
+            "{tags}"+
+            " */"+LINE_SEPARATOR
+            ;
+    private  String tagTemplate=" * {tagName}\t{tagValue}{description}";
+   
+    private  String returnTemplate= "return new {type}()";
+    
+    private List<Object> functionRealizationList;
 
-        return sMethodBody;
-    }
+    private Object element;
 
-    /*
-     * Generates all required_once statements for the class header
+
+    public GeneratorAS3() {
+
+    } 
+    
+    /**  
+     * Generate code for the specified classifiers. If generation of
+     * dependencies is requested, then every file the specified elements
+     * depends on is generated too (e.g. if the class MyClass has an attribute
+     * of type OtherClass, then files for OtherClass are generated too).
      *
-     * @param modelElement the class
-     *
-     * @return source code for all required_once statements
-     *
-     * TODO: fix the comparator code
-     */
-    private String generateRequired(Object modelElement) {
-        String sRequired = "";
-
-        if (!Model.getFacade().isAClassifier(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Classifier required");
-        }
-
-        TreeSet<Object> tsRequired = new TreeSet<Object>(
-            new Comparator<Object>() {
-                public int compare(Object obj1, Object obj2) {
-                    if (obj1 != null) {
-                        if (!Model.getFacade().isAClassifier(obj1)) {
-                            throw new ClassCastException(obj1.getClass()
-                                    + " is not comparable as classifier");
-                        }
-                        if (!Model.getFacade().isAClassifier(obj2)) {
-                            throw new ClassCastException(obj2.getClass()
-                                    + " is not comparable as classifier");
-                        }
-
-                        String sFilename1 = NameGenerator.generateFilename(obj1);
-                        if (sFilename1 != null) {
-                            return sFilename1.compareTo(NameGenerator
-                                .generateFilename(obj2));
-                        }
-                        return (NameGenerator.generateFilename(obj2) != null) ? -1 : 0;
-                    }
-                    if (obj2 != null) {
-                        return -1;
-                    }
-                    return 0;
-                }
-            }
-        );
-
-        for (Object generalization : Model.getFacade().getGeneralizations(
-                modelElement)) {
-            tsRequired.add(Model.getFacade().getGeneral(generalization));
-        }
-
-        for (Object assocEnd : Model.getFacade().getAssociationEnds(
-                modelElement)) {
-            Object oppositeEnd = getNavigableOppositeEnd(assocEnd);
-            if (oppositeEnd != null) {
-                tsRequired.add(Model.getFacade().getType(oppositeEnd));
-            }
-        }
-        
-        for (Object dep : Model.getFacade().getClientDependencies(
-                modelElement)) {
-            for (Object supplier : Model.getFacade().getSuppliers(dep)) {
-                tsRequired.add(supplier);
-            }
-        }
-
-        // TODO: We need includes for types of attributes and operation
-        // parameters, but I'm not sure where they need to go - tfm 
-        // Issue 4095
-//        for (Object attribute : Model.getFacade().getAttributes(
-//                modelElement)) {
-//            Object type = Model.getFacade().getType(attribute);
-//            if (type != null) {
-//                tsRequired.add(type);
-//            }
-//        }
-//
-//        for (Object operation : Model.getFacade().getOperations(
-//                modelElement)) {
-//            for (Object parameter : Model.getFacade().getParameters(
-//                    operation)) {
-//                Object type = Model.getFacade().getType(parameter);
-//                if (type != null) {
-//                    tsRequired.add(type);
-//                }
-//            }
-//        }
-        
-        for (Object objRequired : tsRequired) {
-            if (!objRequired.equals(modelElement)) {
-                sRequired += generateRequireOnceStatement(objRequired, true)
-                        + "\n";
-            }
-        }
-        
-
-        return sRequired;
-    }
-
-    /**
-     * Finds the model element that represents the class constructor
-     *
-     * @param modelElement The model element to find constructor for
-     *
-     * @return The constructor operation element;
-     *         <code>null</code> otherwise;
-     *
-     * TODO: implement the lookup
-     */
-    private Object findConstructor(Object modelElement) {
-        if (!Model.getFacade().isAClass(modelElement)) {
-            throw new ClassCastException(modelElement.getClass()
-                    + " has wrong object type, Class required");
-        }
-
-        return null;
-    }
-
-    /*
+     * @param elements the UML model elements to generate code for.
+     * @param deps Recursively generate dependency files too.
+     * @return A collection of {@link SourceUnit} objects. The collection
+     *         may be empty if no file is generated.
      * @see org.argouml.uml.generator.CodeGenerator#generate(java.util.Collection, boolean)
      */
-    public Collection generate(Collection elements, boolean deps) {
-        LOG.debug("generate() called");
+    public Collection<SourceUnit> generate(Collection elements, boolean deps) {
         File tmpdir = null;
         try {
             tmpdir = TempFileUtils.createTempDir();
@@ -1493,41 +264,593 @@ public class GeneratorAS3 implements CodeGenerator {
             if (tmpdir != null) {
                 TempFileUtils.deleteDir(tmpdir);
             }
-            LOG.debug("generate() terminated");
+           
         }
     }
 
-    /*
+    /**
+     * Returns a list of files that will be generated from the specified
+     * model elements.
+     * TODO: 'deps' is ignored here
+     * 
+     * @see #generate(Collection, boolean)
+     * @param elements the UML model elements to generate code for.
+     * @param deps Recursively generate dependency files too.
+     * @return The filenames (with relative path) as a collection of Strings.
+     *         The collection may be empty if no file will be generated.
+     * @see org.argouml.uml.generator.CodeGenerator#generateFileList(java.util.Collection, boolean)
+     */
+    public Collection<String> generateFileList(Collection elements, boolean deps) {
+
+        Collection<String> files=new ArrayList<String>();
+        for (Object element : elements) {
+            files.add(Model.getFacade().getName(element)+languageDeffinitionToken.get("fileExtension"));
+        }
+        return elements;
+    }
+
+
+    /**
+     * Generate files for the specified classifiers.
+     * TODO: 'deps' is ignored 
+     * 
+     * @see #generate(Collection, boolean)
+     * @param elements the UML model elements to generate code for.
+     * @param path The source base path.
+     * @param deps Recursively generate dependency files too.
+     * @return The filenames (with relative path) as a collection of Strings.
+     *         The collection may be empty if no file will be generated.
      * @see org.argouml.uml.generator.CodeGenerator#generateFiles(java.util.Collection, java.lang.String, boolean)
      */
-    public Collection generateFiles(Collection elements, String path,
-            boolean deps) {
-        LOG.debug("generateFiles() called");
-        // TODO: 'deps' is ignored here
-        for (Iterator it = elements.iterator(); it.hasNext();) {
-            generateFile(it.next(), path);
+    public Collection<String> generateFiles(Collection elements, String path, boolean deps)
+    {
+
+        for (Object element : elements) {
+            String file= generateFile(element);
+            
+            //***************write the tmp file
+            String pathname = path;
+            if (!path.endsWith(FILE_SEPARATOR)) {
+                pathname+=FILE_SEPARATOR;
+            }
+            pathname+=Model.getFacade().getName(element)+languageDeffinitionToken.get("fileExtension");
+           
+            File f = new File(pathname);
+       
+            BufferedWriter fos = null;
+            try {
+                if (Configuration.getString(Argo.KEY_INPUT_SOURCE_ENCODING) == null
+                    || Configuration.getString(Argo.KEY_INPUT_SOURCE_ENCODING)
+                        .trim().equals("")) {
+                    fos =
+                        new BufferedWriter(
+                                new OutputStreamWriter(new FileOutputStream(f),
+                                        System.getProperty("file.encoding")));
+                } else {
+                    fos =
+                        new BufferedWriter(
+                                new OutputStreamWriter(new FileOutputStream(f),
+                                        Configuration.getString(
+                                                Argo.KEY_INPUT_SOURCE_ENCODING)));
+                }
+                fos.write(file);
+
+            } catch (IOException exp) {
+                //LOG.error("IO Exception: " + exp + ", for file: " + f.getPath());
+            } finally {
+                
+                try {
+                    if (fos != null) {
+                        fos.close();
+                    }
+                } catch (IOException exp) {
+                    //LOG.error("FAILED: " + f.getPath());
+                }
+            }
+            
         }
         return TempFileUtils.readFileNames(new File(path));
     }
+    private String generateFile(Object element)
+    {
+        
+        SourceTemplate classtpl = new SourceTemplate(classTemplate);
+     
+        importSet  = new HashSet<Object>();
+        this.element = element;
+       
+        //****************** generate package path
+        classtpl.putToken("package", getPackagePath(element));
+        
+        //**************** generate class body
+        classtpl.putToken("mainClass", indentLines(INDENT,generateBody(element)));
 
-    /*
-     * @see org.argouml.uml.generator.CodeGenerator#generateFileList(java.util.Collection, boolean)
-     */
-    public Collection generateFileList(Collection elements, boolean deps) {
-        LOG.debug("generateFileList() called");
-        // TODO: 'deps' is ignored here
-        File tmpdir = null;
-        try {
-            tmpdir = TempFileUtils.createTempDir();
-            for (Object element : elements) {
-                generateFile(element, tmpdir.getName());
-            }
-            return TempFileUtils.readFileNames(tmpdir);
-        } finally {
-            if (tmpdir != null) {
-                TempFileUtils.deleteDir(tmpdir);
+        //****************** generate imports for main class
+        SourceTemplate importtpl = new SourceTemplate(importTemplate);
+        classtpl.appendToken("imports","");
+        for(Object obj : importSet)
+        {
+            importtpl.clearTokens();
+            importtpl.putToken("importPath",getClassPath(obj));
+            importtpl.putToken("ClassName",Model.getFacade().getName(obj));
+            classtpl.appendToken("imports",importtpl.parse(true));
+        }
+        
+        
+        //clear import list to get it ready for import of inner class
+        importSet  = new HashSet<Object>();
+        
+        //**************** generate inner class body
+        Collection<?> inClass = Model.getFacade().getOwnedElements(element);
+        classtpl.putToken("innerClass","");
+        for (Object aclass : inClass) {
+            if (Model.getFacade().isAClass(aclass)
+                || Model.getFacade().isAInterface(aclass))
+            {
+
+                classtpl.appendToken("innerClass",generateBody(aclass));
             }
         }
+        
+        //****************** generate imports for all inner class
+        classtpl.putToken("innerImports", "");
+        for(Object obj : importSet)
+        {
+            importtpl.clearTokens();
+            importtpl.putToken("importPath",getClassPath(obj));
+            importtpl.putToken("ClassName",Model.getFacade().getName(obj));
+            classtpl.appendToken("innerImports", importtpl.parse(true));
+        }
+        
+        return classtpl.parse();
     }
+
+    private String generateBody(Object element)
+    {
+           
+        functionRealizationList = new ArrayList<Object>();
+        FunctionGeneralisationMap = new HashMap<String, Object>();  
+        
+        SourceTemplate bodytpl = new SourceTemplate(bodyClassTemplate);
+        
+        
+        if (Model.getFacade().isAClass(element))
+        {
+            
+            bodytpl.putToken("classType", languageDeffinitionToken.get("class"));
+            //******************* Generate class implement interface
+            String sImplements = "";
+            Collection<?> realizations = Model.getFacade().getSpecifications(element);
+            if(!realizations.isEmpty())
+            {
+                sImplements = " implements ";
+                Iterator<?> iterator = realizations.iterator();
+                while(iterator.hasNext())
+                {
+                    Object realization = iterator.next();
+                    functionRealizationList.addAll(Model.getFacade().getOperations(realization));
+                    checkImport(realization, element);
+                    
+                    sImplements += Model.getFacade().getName(realization);
+                    if(iterator.hasNext())
+                        sImplements +=" ,";
+                }
+            }
+            bodytpl.putToken("implements", sImplements);
+            
+        } else if (Model.getFacade().isAInterface(element)) {
+            bodytpl.putToken("classType",languageDeffinitionToken.get("interface"));
+            bodytpl.putToken("implements", "");
+        } else {
+            return ""; // actors, use cases etc.
+        }
+        
+        boolean isInnerClass = (Model.getFacade().isAClass(Model.getFacade().getNamespace(element)));
+        
+        //javadoc
+        SourceTemplate  classDoc = getDoc(element);
+        bodytpl.putToken("doc",classDoc.parse(true));
+        //is it a dynamic class
+        bodytpl.putToken("dynamic", "");
+        
+        //is it a final class
+        bodytpl.putToken("final", (Model.getFacade().isLeaf(element))? languageDeffinitionToken.get("final"):"");
+        
+        // class name
+        bodytpl.putToken("name", Model.getFacade().getName(element));
+        // class visibility
+        if(isInnerClass)
+        {
+            bodytpl.putToken("visibility", innerClassVisibility.get(Model.getFacade().getVisibility(element)));
+        }else
+        {
+            bodytpl.putToken("visibility", classVisibility.get(Model.getFacade().getVisibility(element)));
+        }
+        
+        
+        
+        //********************* generate class extends 
+        String sExtends = "";
+        Collection<?> generalizations = Model.getFacade().getGeneralizations(element);
+        if(!generalizations.isEmpty())
+        {
+           Object generalization = Model.getFacade().getGeneral(generalizations.iterator().next());
+           checkImport(generalization, element);
+            sExtends = languageDeffinitionToken.get("extends")+Model.getFacade().getName(generalization);
+            
+            Collection<?> operations=Model.getFacade().getOperations(generalization);
+            for(Object op:operations)
+            {
+                FunctionGeneralisationMap.put(Model.getFacade().getName(op),op);
+            }
+        }
+        bodytpl.putToken("extends", sExtends);
+
+        //****************generate attributes
+
+        Collection<?> sFeatures =  Model.getFacade().getStructuralFeatures(element);
+        for(Object structuralFeature : sFeatures)
+        {
+         
+            SourceTemplate attribTpl= getAttribute(structuralFeature);
+  
+            //**attribute assignment
+            Object init = Model.getFacade().getInitialValue(structuralFeature);
+            String initValue = "";
+            if (Model.getFacade().isAExpression(init))
+            {
+                initValue =  Model.getFacade().getBody(init).toString();
+              
+            }else if (Model.getFacade().isAConstraint(init))
+            {
+                while((init=Model.getDataTypesHelper().getBody(init))!="")
+                {
+                    //TODO: need to be tested
+                    if (Model.getFacade().isAExpression(init))
+                        initValue =  Model.getFacade().getBody(init).toString();
+                }
+            }
+            
+            //**
+            if(initValue!="")
+            {
+                attribTpl.putToken("initValue",languageDeffinitionToken.get("attributeAssignment")+initValue );
+                attribTpl.putToken("doc:tags:default",getTagDoc("default",initValue)+LINE_SEPARATOR);
+                
+            }
+
+            bodytpl.appendToken("attributes", indentLines(INDENT,attribTpl.parse(true)));
+           
+        }
+        
+       
+            
+      //****************generate attributes from association
+      
+        Collection<?> ends = Model.getFacade().getAssociationEnds(element);
+
+        if(Model.getFacade().isAAssociationClass(element))
+        {
+            ends.addAll(  getFacade().getConnections(element));
+        }
+        Collection<Object> listedEnds = new ArrayList<Object>();
+        for(Object obj : ends)
+        {   
+
+            Object association = Model.getFacade().getAssociation(obj);
+
+            Collection<?> connections = Model.getFacade().getOtherAssociationEnds(obj);
+            
+            //avoid double attribute for recursive association
+            if (!listedEnds.contains(obj)|| Model.getFacade().isAAssociationClass(element))
+            {
+
+                for (Object associationEnd2 : connections)
+                {
+                    
+                    if((Model.getFacade().isNavigable(associationEnd2)&&!Model.getFacade().isAbstract(association))
+                            ||(Model.getFacade().isAAssociationClass(element)&&!Model.getFacade().isAbstract(association)))
+                    {
+                        SourceTemplate attribTpl= getAttribute(associationEnd2);
+                        bodytpl.appendToken("attributes", indentLines(INDENT,attribTpl.parse(true)));
+
+                    }
+                    listedEnds.add(associationEnd2);
+                } 
+
+            }
+
+
+        }
+
+        
+        //********generate function body
+        
+        bodytpl.appendToken("functions", "");
+        functionRealizationList.addAll(Model.getFacade().getOperations(element));
+        for (Object behavioralFeature : functionRealizationList)
+        {
+            SourceTemplate fctTpl;
+            if (Model.getFacade().isAClass(element))
+                fctTpl= new SourceTemplate(functionTemplate);
+            else
+                fctTpl = new SourceTemplate(functionInterfaceTemplate);
+            
+            if( FunctionGeneralisationMap.containsKey(Model.getFacade().getName(behavioralFeature)))
+            {
+                fctTpl.putToken("override",languageDeffinitionToken.get("override"));
+                behavioralFeature=FunctionGeneralisationMap.get(Model.getFacade().getName(behavioralFeature));
+            }
+            fctTpl.putToken("visibility",functionVisibility.get(Model.getFacade().getVisibility(behavioralFeature)));
+           
+            if (Model.getFacade().isStatic(behavioralFeature))
+            {
+                fctTpl.putToken("static",languageDeffinitionToken.get("static"));
+            }
+            if(Model.getFacade().isLeaf(behavioralFeature))
+                fctTpl.putToken("final", "final ");
+            
+            fctTpl.putToken("name",Model.getFacade().getName(behavioralFeature));
+             
+            fctTpl.putToken("returnType",languageDeffinitionToken.get("FunctionNoReturnType"));
+
+            Collection<?> params = Model.getFacade().getParameters(behavioralFeature);
+            Boolean isNotFirst=false;
+            for(Object param : params)
+            {
+                SourceTemplate argTpl= new SourceTemplate(functionAgrumentTemplate);
+                Object paramType = Model.getFacade().getType(param);
+                
+                if(! Model.getFacade().isReturn(param))
+               {
+                  // "{argumentSeparator}{name} : {type}{initValue}"
+                   if(isNotFirst)
+                   {
+                       argTpl.putToken("argumentSeparator",languageDeffinitionToken.get("argumentSeparator"));
+                       
+                   }else{
+                       argTpl.putToken("argumentSeparator","");
+                       isNotFirst =true;
+                   }
+                   argTpl.putToken("name",Model.getFacade().getName(param));
+                   argTpl.putToken("typeAssignment",languageDeffinitionToken.get("typeAssignment"));
+                   argTpl.putToken("type",languageDeffinitionToken.get("defaultType"));
+                   if (paramType!=null)
+                       argTpl.putToken("type",Model.getFacade().getName(paramType));
+                   Object init = Model.getFacade().getDefaultValue(param);
+                   if (Model.getFacade().isAExpression(init))
+                       argTpl.putToken("initValue",languageDeffinitionToken.get("parameterAssignment")+Model.getFacade().getBody(init));
+                   else
+                       argTpl.putToken("initValue","");
+                   fctTpl.appendToken("arguments", argTpl.parse());   
+                   
+               }else
+               {
+                   if (paramType!=null)
+                   {
+                       fctTpl.putToken("returnType",Model.getFacade().getName(paramType));
+                       SourceTemplate rtnTpl = new SourceTemplate(returnTemplate);
+                       rtnTpl.putToken("type", Model.getFacade().getName(paramType));
+                       fctTpl.putToken("returnValue",rtnTpl);
+                   }
+                   
+               }
+               checkImport(paramType, element);
+               
+            }
+            for (Object m : Model.getFacade().getMethods(behavioralFeature))
+            {
+                if (Model.getFacade().getBody(m) != null)
+                {
+                    fctTpl.appendToken("code",LINE_SEPARATOR+indentLines(INDENT,((String) Model.getFacade().getBody(Model.getFacade().getBody(m)))));
+                }       
+            }
+                
+            
+            bodytpl.appendToken("functions", indentLines(INDENT,fctTpl.parse()));
+        }
+        return bodytpl.parse();
+    }
+    
+    /**
+     * @param attrib AssociationEnd or StructuralFeature to generate the source code for
+     * @return a SourceTemplate of the attribute without initValue
+     */
+    private SourceTemplate getAttribute(Object attrib)
+    {
+        SourceTemplate attribTpl= new SourceTemplate(varTemplate);
+        
+        attribTpl.putToken("visibility", attributesVisibility.get(Model.getFacade().getVisibility(attrib)));
+        
+        
+             
+        if (Model.getFacade().isReadOnly(attrib)) {
+            attribTpl.putToken("changeability",languageDeffinitionToken.get("constant"));
+        } else {
+            attribTpl.putToken("changeability",languageDeffinitionToken.get("property"));
+        }
+        
+        String type;
+        int upperMultiplicity;
+        String defaultName;
+        Object attribType;
+        if(Model.getFacade().isAAssociationEnd(attrib))
+        {
+
+            if(Model.getFacade().isAAssociationClass(Model.getFacade().getAssociation(attrib)))
+            {//this is an association class association
+                if(Model.getFacade().isAAssociationClass(element))
+                {//we are parsing the association class
+                    attribType = Model.getFacade().getType(attrib);
+                    defaultName = "my" + Model.getFacade().getName(attribType);
+                }else
+                {//we are parsing the class linked with the association class
+                    //so the type have to be the AssociationClass herself
+                    attribType = Model.getFacade().getAssociation(attrib);
+                    defaultName = "my" + Model.getFacade().getName(attribType);
+                }
+            }else //this is a non class association
+            {
+                attribType = Model.getFacade().getType(attrib);
+                defaultName = Model.getFacade().getName(Model.getFacade().getAssociation(attrib));
+                if(defaultName == null || defaultName.length() == 0)
+                    defaultName = "my" + Model.getFacade().getName(attribType);
+            }
+
+            String AssociationEndName = Model.getFacade().getName(attrib); 
+            if(AssociationEndName != null && !(AssociationEndName.length() == 0))
+            {
+                attribTpl.putToken("name",AssociationEndName);
+            }else 
+            {
+                attribTpl.putToken("name",defaultName);
+            }
+            
+            upperMultiplicity = Model.getFacade().getUpper(attrib);
+
+
+        }else //this is a StructuralFeature
+        {
+            //throw error with AssociationEnd ... 
+            if (Model.getFacade().isStatic(attrib))
+                attribTpl.putToken("static",languageDeffinitionToken.get("static"));
+           
+            attribType = Model.getFacade().getType(attrib);
+            upperMultiplicity = Model.getFacade().getUpper(Model.getFacade().getMultiplicity(attrib));
+            attribTpl.putToken("name", Model.getFacade().getName(attrib));
+        } 
+
+
+        type = Model.getFacade().getName(attribType);
+        if ( upperMultiplicity == 1) {
+            attribTpl.putToken("type",type);
+        } else {
+            attribTpl.putToken("type","Vector.<"+type+">");
+        }
+        
+        attribTpl.putToken("doc", getDoc(attrib));
+        
+        checkImport(attribType, element);
+        
+        return attribTpl;
+    }
+    
+    
+    /**
+     * @param element
+     * @return
+     */
+    private String getClassPath(Object element)
+    {
+        String path=getPackagePath(element);
+        return path == "" ? path : path+languageDeffinitionToken.get("packageClassSeparator");
+    }
+       private String getPackagePath(Object element)
+       {
+           SourceTemplate elementTpl= new SourceTemplate(packageElementTemplate);
+           
+           if(element==null) return "";
+           
+           Object packageElement = element;
+          
+           boolean first= true;
+           while ((packageElement = Model.getFacade().getNamespace(packageElement))
+                   != null)
+           {
+               // Omit root package name; it's the model's root
+               if (Model.getFacade().getNamespace(packageElement) != null)
+               {
+                   if (first)
+                       elementTpl.putToken("name", Model.getFacade().getName(packageElement));
+                   else
+                       elementTpl.prependToken("name", Model.getFacade().getName(packageElement)+languageDeffinitionToken.get("packageSeparator"));
+               }
+               first = false;
+           }
+           
+           return elementTpl.parse(true);
+       }
+       
+       private void checkImport(Object obj, Object obj2)
+       {
+           if(obj!=null&&
+                   obj2!=null&&
+                   Model.getFacade().getNamespace(obj)!=Model.getFacade().getNamespace(obj2)&&
+                   !BASE_TYPES.contains(Model.getFacade().getName(obj)))
+               importSet.add(obj);
+       }
+
+       public String indentLines(String indent,String txt)
+       {
+           if(txt.length()>0)
+               return indent+(txt.replace("\r", "").replace("\n", LINE_SEPARATOR).replace(LINE_SEPARATOR, LINE_SEPARATOR+indent));
+           else
+               return "";
+       }
+       public String indentLines(String txt)
+       {
+           return indentLines("",txt);
+       }
+    private SourceTemplate getDoc(Object obj)
+    {
+        SourceTemplate docTpl = new SourceTemplate(docTemplate);
+        
+        // base documentation
+        String doc= indentLines(" *\t",getFacade().getTaggedValueValue(obj, Argo.DOCUMENTATION_TAG));
+        if(doc != "")
+        {
+            doc= doc+LINE_SEPARATOR;
+            docTpl.putToken("doc", doc);
+        }
+        SourceTemplate innerTpl;
+        
+        if (Model.getFacade().isAClass(obj) || Model.getFacade().isAInterface(obj))
+        {
+            innerTpl = new SourceTemplate(this.classDocTemplate);
+        }
+        else if (Model.getFacade().isAOperation(obj)) 
+        {
+            innerTpl = new SourceTemplate(this.methodDocTemplate);
+        }
+        else if (Model.getFacade().isAAttribute(obj) || Model.getFacade().isAAssociationEnd(obj))
+        {
+            innerTpl = new SourceTemplate(this.fieldDocTemplate);
+        }else{
+            innerTpl = new SourceTemplate();
+        }
+        
+        //Commune agroUML documentation
+        Collection<?> tagsValue = getFacade().getTaggedValuesCollection(obj);
+        
+        for(Object tv : tagsValue)
+        {
+            String tName = getFacade().getTagOfTag(tv);
+            if(JavaDocToken.containsKey(tName))
+            {
+                innerTpl.putToken(tName,getTagDoc(tName, getFacade().getValueOfTag(tv))+LINE_SEPARATOR);
+            }
+        }
+        docTpl.putToken("tags", innerTpl);
+        return docTpl;
+    }
+    
+    private String getTagDoc(String tagName, String tagValue,String description)
+    {
+        SourceTemplate docTpl = new SourceTemplate(tagTemplate);
+        tagName = tagName.startsWith("@")? tagName : JavaDocToken.get(tagName);
+        docTpl.putToken("tagName", tagName);
+        docTpl.putToken("tagValue", tagValue);
+        docTpl.putToken("description", description);
+        return docTpl.parse(true);
+    }
+    
+    private String getTagDoc(String tagName, String tagValue)
+    {
+        return getTagDoc(tagName, tagValue,"");
+    }
+   
+
+
+
 
 }
