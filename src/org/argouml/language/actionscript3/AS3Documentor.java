@@ -55,7 +55,7 @@ import org.argouml.model.Model;
 /**
  * This class generates DocBlocks.
  *
- * This was taken from the PHPDocumentor. Hopefully that is similar
+ * This was taken from the AS3Documentor. Hopefully that is similar
  * to the AS3 to be used as a starting point to get the AS3 in place.
  *
  * @author Kai Schr&ouml;der
@@ -287,7 +287,7 @@ public final class AS3Documentor {
 
         String sPackageName = NameGenerator.generatePackageName(modelElement);
 
-        if (sPackageName != null && sPackageName != "") {
+        if ( !isBlank( sPackageName ) ) {
             int iFirstUnderscore = sPackageName.indexOf("_");
             if (iFirstUnderscore == -1) {
                 objDocBlock.setTag(DocBlock.TAG_TYPE_PACKAGE, sPackageName);
@@ -348,7 +348,7 @@ public final class AS3Documentor {
 
         sDescription +=
                 "Automatically generated on " + sDateTime
-                + " with ArgoUML PHP module \n(last revised " 
+                + " with ArgoUML Actionscript 3 module \n(last revised "
                 + "$Date$)";
 
         objDocBlock.setDescription(sDescription);
@@ -421,7 +421,7 @@ public final class AS3Documentor {
         }
 
         String sPackageName = NameGenerator.generatePackageName(modelElement);
-        if (sPackageName != null && sPackageName != "") {
+        if ( !isBlank( sPackageName ) ) {
             int iFirstUnderscore = sPackageName.indexOf("_");
             if (iFirstUnderscore == -1) {
                 objDocBlock.setTag(DocBlock.TAG_TYPE_PACKAGE, sPackageName);
@@ -523,7 +523,7 @@ public final class AS3Documentor {
                 if (returnType != null) {
                     String packageName = NameGenerator
                             .generatePackageName(returnType);
-                    if (packageName != null && packageName != "") {
+                    if ( !isBlank( packageName ) ) {
                         objDocBlock.setTag(DocBlock.TAG_TYPE_RETURN, 
                                 packageName
                                 + "_"
@@ -586,7 +586,7 @@ public final class AS3Documentor {
         objDocBlock.setTags(Model.getFacade().getTaggedValues(modelElement));
 
         String sPackageName = NameGenerator.generatePackageName(modelElement);
-        if (sPackageName != null && sPackageName != "") {
+        if ( !isBlank( sPackageName )) {
             int iFirstUnderscore = sPackageName.indexOf("_");
             if (iFirstUnderscore == -1) {
                 objDocBlock.setTag(DocBlock.TAG_TYPE_PACKAGE, sPackageName);
@@ -641,6 +641,7 @@ public final class AS3Documentor {
      * @return The unindented string representation of the DocBlock;
      *         <code>null</code> otherwise.
      */
+    @Override
     public final String toString() {
         return toString("");
     }
@@ -663,7 +664,7 @@ public final class AS3Documentor {
     // -------------------------------------------------------------------------
 
     /**
-     * This class is the base class for PHPDocumentor DocBlock's.
+     * This class is the base class for AS3Documentor DocBlock's.
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -729,7 +730,7 @@ public final class AS3Documentor {
         public final String toString(String sIndent) {
             String s = "";
 
-            if (sDescription == null || sDescription == "") {
+            if ( isBlank( sDescription ) ) {
                 setDescription(sDefaultDescription);
             }
 
@@ -772,7 +773,7 @@ public final class AS3Documentor {
         private final String wrapDescription(String sIndent, int iMaxWidth) {
             String sWrapped = "";
 
-            if (sDescription != null && sDescription.trim() != "") {
+            if ( !isBlank( sDescription ) ) {
                 StringTokenizer stDescription =
                         new StringTokenizer(sDescription, "\n\r", true);
                 while (stDescription.hasMoreElements()) {
@@ -795,26 +796,27 @@ public final class AS3Documentor {
                             int iMaxLen = iMaxWidth - 4 - sIndent.length();
                             if ((sLine.length() + sLineToken.length())
                                     <= iMaxLen) {
-                                sLine += sLine.trim() != "" ? " " : "";
+                                sLine += !sLine.trim().equals( "" ) ? " " : "";
                                 sLine += sLineToken;
                             } else {
-                                if (sLine.trim() != "") {
+                                if ( !sLine.trim().equals( "" ) ) {
                                     sWrapped += sIndent + " * " + sLine + "\n";
                                 }
                                 sLine = "";
                             }
                         }
 
-                        if (sLine.trim() != "") {
+                        if ( !sLine.trim().equals( "" ) ) {
                             sWrapped += sIndent + " * " + sLine + "\n";
                         }
                     } else {
-                        if (sToken.trim() != "") {
+                        if (!sToken.trim().equals( "" )) {
                             sWrapped += sIndent + " * " + sToken + "\n";
                         } else if (stDescription.hasMoreElements()) {
                             sWrapped += sIndent + " *\n";
                         }
                     }
+
                 }
 
                 sWrapped += sIndent + " *\n";
@@ -833,7 +835,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise;
          */
         public final boolean setDescription(String sBlockDesc) {
-            if (sBlockDesc != null && sBlockDesc.trim().length() > 0) {
+            if ( !isBlank( sBlockDesc ) ) {
                 sDescription = sBlockDesc.trim();
 
                 return true;
@@ -850,7 +852,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise.
          */
         public final boolean setDefaultDescription(String sBlockDesc) {
-            if (sBlockDesc != null && sBlockDesc.trim().length() > 0) {
+            if ( !isBlank( sBlockDesc ) ) {
                 sDefaultDescription = sBlockDesc.trim();
 
                 return true;
@@ -1156,7 +1158,7 @@ public final class AS3Documentor {
     }
     
     /**
-     * This class is the abstract base class for all PHPDocumentor tags.
+     * This class is the abstract base class for all AS3Documentor tags.
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1221,7 +1223,7 @@ public final class AS3Documentor {
     // -------------------------------------------------------------------------
 
     /**
-     * This class is the base class for simple PHPDocumentor tags.
+     * This class is the base class for simple AS3Documentor tags.
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1257,7 +1259,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise.
          */
         public boolean setContent(String sTagContent) {
-            if (sTagContent != null && sTagContent.trim().length() > 0) {
+            if ( !isBlank( sTagContent ) ) {
                 sContent = sTagContent.trim();
 
                 return true;
@@ -1269,7 +1271,7 @@ public final class AS3Documentor {
     // -------------------------------------------------------------------------
 
     /**
-     * This class is the base class for boolean PHPDocumentor tags.
+     * This class is the base class for boolean AS3Documentor tags.
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1303,7 +1305,7 @@ public final class AS3Documentor {
          */
         public final String getContent() {
             if (bContent) {
-                if (sReason != null && sReason.length() > 0) {
+                if ( !isBlank( sReason ) ) {
                     return sReason;
                 }
                 return "";
@@ -1320,7 +1322,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise.
          */
         public final boolean setContent(String sTagContent) {
-            if (sTagContent != null && sTagContent.trim().length() > 0) {
+            if ( !isBlank( sTagContent ) ) {
                 if (sTagContent.trim().equals("true")) {
                     return setContent(true);
                 } else if (sTagContent.trim().equals("false")) {
@@ -1352,7 +1354,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation of
-     * PHPDocumentor's @access tag
+     * AS3Documentor's @access tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1438,7 +1440,7 @@ public final class AS3Documentor {
         }
 
         public boolean setContent(String sTagContent) {
-            if (sTagContent != null && sTagContent.trim().length() > 0) {
+            if ( !isBlank( sTagContent ) ) {
                 if (sTagContent.trim().equals("public")) {
                     return setPublic();
                 } else if (sTagContent.trim().equals("protected")) {
@@ -1457,7 +1459,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @author tag
+     * AS3Documentor's @author tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1498,7 +1500,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise;
          */
         public boolean setName(String sAuthorName) {
-            if (sAuthorName != null && sAuthorName.trim().length() > 0) {
+            if ( !isBlank( sAuthorName ) ) {
                 this.authorName  = sAuthorName.trim();
                 this.sEmail = null;
 
@@ -1517,7 +1519,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise;
          */
         public boolean setEmail(String sAuthorEmail) {
-            if (sAuthorEmail != null && sAuthorEmail.trim().length() > 0) {
+            if( !isBlank( sAuthorEmail ) ) {
                 this.sEmail = sAuthorEmail.trim();
 
                 return true;
@@ -1558,7 +1560,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @abstract tag
+     * AS3Documentor's @abstract tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.7
@@ -1576,7 +1578,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @deprecated tag
+     * AS3Documentor's @deprecated tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1594,7 +1596,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @package tag
+     * AS3Documentor's @package tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1642,7 +1644,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise;
          */
         public boolean setType(String sParamType) {
-            if (sParamType != null && sParamType.trim() != "") {
+            if ( !isBlank( sParamType ) ) {
                 this.sType = sParamType.trim();
 
                 return true;
@@ -1660,7 +1662,7 @@ public final class AS3Documentor {
          *         <code>false</code> otherwise;
          */
         public boolean setDescription(String sParamDescription) {
-            if (sParamDescription != null && sParamDescription.trim() != "") {
+            if( !isBlank( sParamDescription ) ) {
                 this.sDescription = sParamDescription.trim();
 
                 return true;
@@ -1703,7 +1705,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @return tag
+     * AS3Documentor's @return tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1721,7 +1723,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @see tag
+     * AS3Documentor's @see tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1739,7 +1741,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @since tag
+     * AS3Documentor's @since tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1757,7 +1759,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @static tag
+     * AS3Documentor's @static tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1775,7 +1777,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @package tag
+     * AS3Documentor's @package tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1793,7 +1795,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @var tag
+     * AS3Documentor's @var tag
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1811,7 +1813,7 @@ public final class AS3Documentor {
 
     /**
      * This class is the final implementation to generate
-     * PHPDocumentor's @version tag.
+     * AS3Documentor's @version tag.
      *
      * @author  Kai Schr&ouml;der, k.schroeder@php.net
      * @since   ArgoUML 0.15.5
@@ -1823,5 +1825,18 @@ public final class AS3Documentor {
         public VersionTag() {
             super("version");
         }
+    }
+
+    /**
+     * This logic is used throughout this class. It is a re-implementation of
+     * Apache commons' StringUtil method of the same name.
+     * 
+     * Is this String null or does it contain something other than spaces?
+     * @param str   The string to test
+     * @return      Whether the string is empty or contains nothing but whitespace
+     */
+    private static final boolean isBlank( String str )
+    {
+        return ( str == null || str.trim().equals( "" ) );
     }
 }
