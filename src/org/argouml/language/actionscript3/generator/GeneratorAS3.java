@@ -8,12 +8,13 @@
  *
  * Contributors:
  *    Romain Flacher    
+ *    cwallenpoole
  *****************************************************************************
  *
  * Some portions of this file was previously release using the BSD License:
  */
 
-// Copyright (c) 2004-2008 The Regents of the University of California. All
+// Copyright (c) 2004-2010 The Regents of the University of California. All
 // Rights Reserved. Permission to use, copy, modify, and distribute this
 // software and its documentation without fee, and without a written
 // agreement is hereby granted, provided that the above copyright notice
@@ -53,7 +54,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.argouml.application.api.Argo;
@@ -72,13 +72,18 @@ import org.argouml.uml.generator.TempFileUtils;
  */
 public class GeneratorAS3 implements CodeGenerator {
     private static final Logger LOG = Logger.getLogger(GeneratorAS3.class);
+    // This is a shortcut... AS3CodeFormats.languageDeffinitionToken is
+    // REALLY long.
+    protected static Map<String, String> lang;
     protected Map<String, Object> functionGeneralisationMap;
-    private List<Object> functionRealizationList;
+    private static Facade facade;
 
-    private Facade facade;
-
-    public GeneratorAS3() {
+    private static int uniqueIndex = 0;
+	
+    public GeneratorAS3() 
+    {
         facade = Model.getFacade();
+        lang = AS3CodeFormats.languageDeffinitionToken;
     } 
     
     /**  
@@ -93,7 +98,8 @@ public class GeneratorAS3 implements CodeGenerator {
      *         may be empty if no file is generated.
      * @see org.argouml.uml.generator.CodeGenerator#generate(java.util.Collection, boolean)
      */
-    public Collection<SourceUnit> generate(Collection elements, boolean deps) {
+    public Collection<SourceUnit> generate(Collection elements, boolean deps)
+    {
         File tmpdir = null;
         try {
             tmpdir = TempFileUtils.createTempDir();
@@ -123,18 +129,18 @@ public class GeneratorAS3 implements CodeGenerator {
      *         The collection may be empty if no file will be generated.
      * @see org.argouml.uml.generator.CodeGenerator#generateFileList(java.util.Collection, boolean)
      */
-    public Collection<String> generateFileList(Collection elements, boolean deps) {
+    public Collection<String> generateFileList(Collection elements, boolean deps)
+    {
 
         Collection<String> files=new ArrayList<String>();
         for (Object element : elements) {
             files.add(
                         facade.getName(element)+
-                        AS3CodeFormats.languageDeffinitionToken.get("fileExtension")
+                        lang.get("fileExtension")
                     );
         }
         return elements;
     }
-
 
     /**
      * Generate files for the specified classifiers.
@@ -151,31 +157,8 @@ public class GeneratorAS3 implements CodeGenerator {
     public Collection<String> generateFiles(Collection elements, String path, boolean deps)
     {
         writeElementsToPath( elements, path );
-        Collection<String> files = TempFileUtils.readFileNames(new File(path));
+        Collection<String> files = TempFileUtils.readFileNames( new File( path ) );
         return files;
-    }
-
-    protected void appendImports( SourceTemplate classTpl, HashSet imports, String importType )
-    {
-        classTpl.appendToken( importType, "" );
-        SourceTemplate importTpl = new SourceTemplate( AS3CodeFormats.importTemplate );
-        for(Object obj : imports )
-        {
-            LOG.error( obj.getClass() + " => " + obj );
-            importTpl.clearTokens();
-            importTpl.putToken("importPath",getClassPath(obj));
-            importTpl.putToken("ClassName",facade.getName(obj));
-            classTpl.appendToken( importType, importTpl.parse() );
-        }        
-    }
-
-    protected void appendInnerImports( SourceTemplate classTpl, Object element )
-    {
-        appendImports( classTpl, getInnerImports( element ), "innerImports" );
-    }
-    protected void appendClassImports( SourceTemplate classTpl, Object element )
-    {
-        appendImports( classTpl, getClassImports( element ), "imports" );
     }
     
     /**
@@ -192,34 +175,181 @@ public class GeneratorAS3 implements CodeGenerator {
         return classTpl.parse();
     }
 
+    /**
+     * Adds the body of a class to a template inside of the main package
+     *
+     * @param classTpl      The template
+     * @param publicClass   The class
+     */
     protected void addMainClassToTemplate( SourceTemplate classTpl, Object publicClass )
     {
-        //****************** generate package path
         classTpl.putToken("package", getPackagePath( publicClass ) );
-        //**************** generate class body
         classTpl.putToken("mainClass", indentLines( generateBody(publicClass), AS3CodeFormats.INDENT ));
-
-        //****************** generate imports for main class
-        appendClassImports( classTpl, publicClass );
+        addClassImportsToTemplate( classTpl, publicClass );
     }
-
-    protected void addPrivateClassesToTemplate( SourceTemplate classTpl, Object privateClass )
+	
+    /**
+     * This simply adds what are considered "inner" (nested, or private) classes
+     * to a given class template.
+     *
+     * @param classTpl           The template to append
+     * @param privateClassBlock  The objects which "owns" all of the private
+     *                           class data.
+     */
+    protected void addPrivateClassesToTemplate( SourceTemplate classTpl, Object privateClassBlock )
     {
-        //**************** generate inner class body
-        Collection<?> inClass = facade.getOwnedElements(privateClass);
+        Collection<?> inClass = facade.getOwnedElements( privateClassBlock );
         for (Object klass : inClass)
         {
-            if (facade.isAClass(klass) || facade.isAInterface(klass))
+            if( isType( klass ) )
             {
                 classTpl.appendToken("innerClass", generateBody( klass ) );
             }
         }
-
-        //****************** generate imports for all inner class
-        appendInnerImports( classTpl, privateClass );
+        addInnerImportsToTemplate( classTpl, privateClassBlock );
     }
 
+    /**
+     * Creates the actual body of the class.
+     *
+     * @param klass The object to base the body off of.
+     * @return      A string which represents the body of the class.
+     */
+    protected String generateBody(Object klass)
+    {
+        if( !isType( klass ) )
+        {
+            return "";
+        }
+        functionGeneralisationMap = new HashMap<String, Object>();
 
+        SourceTemplate bodyTpl = getBodyTemplate( klass );
+        addImplementations( bodyTpl, klass );
+
+        //javadoc
+        bodyTpl.putToken("doc", getDoc(klass).parse() );
+        //is it a dynamic class
+        bodyTpl.putToken( "dynamic", "" );
+
+        //is it a final class
+        bodyTpl.putToken("final", (facade.isLeaf(klass))? lang.get("final"):"");
+        // class name
+        bodyTpl.putToken("name", facade.getName(klass));
+        // class visibility
+        Map<Object, String> source = ( facade.isAClass(facade.getNamespace(klass)) )?AS3CodeFormats.innerClassVisibility: AS3CodeFormats.classVisibility;
+        bodyTpl.putToken("visibility", source.get(facade.getVisibility(klass)));
+        //********************* generate class extends
+        bodyTpl.putToken("extends", getExtends( klass ));
+        //****************generate attributes
+
+        addStructuralAttributes( bodyTpl, klass );
+
+        //****************generate attributes from association
+	addAssociationAttributes( bodyTpl, klass );
+        addFunctions( bodyTpl, klass );
+        return bodyTpl.parse();
+    }
+
+    /**
+     * Handles the addition of all attributes which are considered UML
+     * "structural features"
+     *
+     * @param bodyTpl   Template to append
+     * @param klass     The source class.
+     */
+    protected void addStructuralAttributes( SourceTemplate bodyTpl, Object klass )
+    {
+        Collection<?> sFeatures =  facade.getStructuralFeatures(klass);
+        LOG.debug( "addStructuralAttributes" );
+        for(Object structuralFeature : sFeatures)
+        {
+            SourceTemplate attribTpl= getAttributeTemplate( structuralFeature );
+
+            //**attribute assignment
+            Object init = facade.getInitialValue(structuralFeature);
+            String initValue = "";
+            if( facade.isAExpression( init ) )
+            {
+                initValue =  facade.getBody(init).toString();
+            }
+            LOG.debug( facade.getName( structuralFeature ) );
+
+            if( !initValue.equals( "" ) )
+            {
+                attribTpl.putToken("initValue",lang.get("attributeAssignment")+initValue );
+                attribTpl.putToken("doc:tags:default",getTagDoc("default",initValue)+AS3CodeFormats.LINE_SEPARATOR);
+            }
+            bodyTpl.appendToken("attributes", indentLines(attribTpl.parse(), AS3CodeFormats.INDENT));
+        }
+    }
+
+    /**
+     * Returns a SourceTemplate which has been initialized as a class or an
+     * interface depending on the input.
+     *
+     * @param klass Either an interface or a class object
+     * @return The resulting template
+     */
+    protected SourceTemplate getBodyTemplate( Object klass )
+    {
+        SourceTemplate bodyTpl = new SourceTemplate( AS3CodeFormats.bodyClassTemplate );
+
+        String classType = facade.isAInterface(klass)?
+                                lang.get("interface"):
+                                lang.get("class");
+
+        bodyTpl.putToken("classType",classType);
+        return bodyTpl;
+    }
+
+    /**
+     * Given a SourceTemplate and a class, this will add the imports to the 
+     * template at the appropriate place
+     *
+     * @param classTpl  The template
+     * @param klass     The class
+     */
+    protected void addClassImportsToTemplate( SourceTemplate classTpl, Object klass )
+    {
+        addImportsToTemplate( classTpl, getClassImports( klass ), "imports" );
+    }
+
+    /**
+     * Given a SourceTemplate and an inner class block, this will add the
+     * imports to the template at the appropriate place
+     *
+     * @param classTpl  The template
+     * @param inner     The inner class block
+     */
+    protected void addInnerImportsToTemplate( SourceTemplate classTpl, Object inner )
+    {
+        addImportsToTemplate( classTpl, getInnerImports( inner ), "innerImports" );
+    }
+
+    /**
+     * Adds all given imports to the SourceTemplate provided using the given
+     * type.
+     *
+     * @param classTpl      The template to modify
+     * @param imports       List of elements to imports
+     * @param importType    Generally "imports" or "innerImports"
+     *
+     * @see #addClassImportsToTemplate(SourceTemplate classTpl,Object klass)
+     * @see #addInnerImportsToTemplate(SourceTemplate classTpl,Object inner)
+     */
+    protected void addImportsToTemplate( SourceTemplate classTpl, HashSet imports, String importType )
+    {
+        classTpl.appendToken( importType, "" );
+        SourceTemplate importTpl = new SourceTemplate( AS3CodeFormats.importTemplate );
+        for(Object imported : imports )
+        {
+            importTpl.clearTokens();
+            importTpl.putToken( "importPath", getClassPath( imported )  );
+            importTpl.putToken( "ClassName", facade.getName( imported ) );
+            classTpl.appendToken( importType, importTpl.parse() );
+        }
+    }
+	
     /**
      * Creates a list of imports for the class provided.
      *
@@ -229,13 +359,15 @@ public class GeneratorAS3 implements CodeGenerator {
     private HashSet getClassImports( Object klass )
     {
         HashSet imports = new HashSet<Object>();
-        Collection<?> realizations = facade.getSpecifications( klass );
+        Collection<Object> realizations = facade.getSpecifications( klass );
+        Object realization = getParentClass( klass );
+        realizations.add( realization );
         if(!realizations.isEmpty())
         {
             Iterator<?> iterator = realizations.iterator();
             while(iterator.hasNext())
             {
-                Object realization = iterator.next();
+                realization = iterator.next();
                 if( elementNeedsImport( realization, klass ) )
                 {
                     imports.add( realization );
@@ -245,12 +377,18 @@ public class GeneratorAS3 implements CodeGenerator {
         return imports;
     }
 
+    /**
+     * Gets a list of imports for the inner/private/nested classes
+     *
+     * @param element   The "owner"
+     * @return  A concatenated set of all of the private imports
+     */
     protected HashSet getInnerImports( Object element )
     {
         HashSet imports = new HashSet<Object>();
         for( Object klass : facade.getOwnedElements(element) )
         {
-            if (facade.isAClass(klass) || facade.isAInterface(klass))
+            if( isType( klass ) )
             {
                imports.addAll( getClassImports( klass ) );
             }
@@ -259,135 +397,67 @@ public class GeneratorAS3 implements CodeGenerator {
     }
 
     /**
-     * Determines whether an object is differentiated from its context and is
-     * not a base class.
+     * Adds the list of interfaces to a template
      *
-     * @param test      The object to test
-     * @param context   The context to compare it to
-     * @return  Whether the test element is unique enough for import
+     * @param bodyTpl
+     * @param element
      */
-    protected boolean elementNeedsImport( Object test, Object context )
-    {
-        return ( test       !=null &&
-                 context    !=null &&
-                 facade.getNamespace( test ) != facade.getNamespace( context )&&
-                 !AS3CodeFormats.BASE_TYPES.contains( facade.getName( test ) ) );
-    }
-
     protected void addImplementations( SourceTemplate bodyTpl, Object element )
     {
-        String sImplements = "";
         Collection<?> realizations = facade.getSpecifications( element );
-        if(!realizations.isEmpty())
-        {
-            sImplements = " implements ";
-            Iterator<?> iterator = realizations.iterator();
-            while(iterator.hasNext())
-            {
-                Object implemented = iterator.next();
-                sImplements += facade.getName(implemented);
-                if(iterator.hasNext()) sImplements += AS3CodeFormats.languageDeffinitionToken.get( "argumentSeparator" );
-            }
-        }
-        bodyTpl.putToken("implements", sImplements);
+        String sImplements = ( realizations.isEmpty() )? 
+                                "":
+                                getImplementationString( realizations );
+        bodyTpl.putToken( "implements", sImplements );
     }
 
-    protected String generateBody(Object klass)
+    /**
+     * Generates a string which represents all of the interfaces a class
+     * represents.
+     *
+     * @param realizations  All of the interfaces which are implemented
+     * @return              The concatenation of the interface names
+     */
+    protected String getImplementationString( Collection<?> realizations )
     {
-        functionRealizationList = new ArrayList<Object>();
-        functionGeneralisationMap = new HashMap<String, Object>();
-
-        SourceTemplate bodyTpl = new SourceTemplate(AS3CodeFormats.bodyClassTemplate);
-
-        String classType =  AS3CodeFormats.languageDeffinitionToken.get("class");        
-        if (facade.isAInterface(klass)) {
-            classType = AS3CodeFormats.languageDeffinitionToken.get("interface");
-        } else if ( !facade.isAClass(klass) ) {
-            return ""; // actors, use cases etc.
-        }
-        
-        bodyTpl.putToken("classType",classType);
-        addImplementations( bodyTpl, klass );
-
-        //javadoc
-        bodyTpl.putToken("doc", getDoc(klass).parse() );
-        //is it a dynamic class
-        bodyTpl.putToken( "dynamic", "" );
-
-        //is it a final class
-        bodyTpl.putToken("final", (facade.isLeaf(klass))? AS3CodeFormats.languageDeffinitionToken.get("final"):"");
-
-        // class name
-        bodyTpl.putToken("name", facade.getName(klass));
-        // class visibility
-        Map<Object, String> source = ( facade.isAClass(facade.getNamespace(klass)) )?AS3CodeFormats.innerClassVisibility: AS3CodeFormats.classVisibility;
-        bodyTpl.putToken("visibility", source.get(facade.getVisibility(klass)));
-
-
-
-        //********************* generate class extends
-
-        bodyTpl.putToken("extends", getExtends( klass ));
-
-        //****************generate attributes
-
-        Collection<?> sFeatures =  facade.getStructuralFeatures(klass);
-        for(Object structuralFeature : sFeatures)
+        String sImplements =  " implements ";
+        Iterator<?> iterator = realizations.iterator();
+        while(iterator.hasNext())
         {
-            SourceTemplate attribTpl= getAttributes(structuralFeature, klass);
+            Object implemented = iterator.next();
+            String temp = facade.getName( implemented );
 
-            //**attribute assignment
-            Object init = facade.getInitialValue(structuralFeature);
-            String initValue = "";
-            if (facade.isAExpression(init))
+            //not sure why, but sometimes this was getting duplicates of the
+            //same implementation.  I suspect it had to do with inheritence
+            if( sImplements.indexOf( temp ) < 0 )
             {
-                initValue =  facade.getBody(init).toString();
-
-            }else if (facade.isAConstraint(init))
-            {
-                while((init=Model.getDataTypesHelper().getBody(init))!="")
-                {
-                    //TODO: need to be tested
-                    if (facade.isAExpression(init))
-                        initValue =  facade.getBody(init).toString();
-                }
+                if( sImplements.length() > 0 ) sImplements += lang.get( "argumentSeparator" );
+                sImplements += temp;
             }
-
-            //**
-            if( !initValue.equals( "" ) )
-            {
-                attribTpl.putToken("initValue",AS3CodeFormats.languageDeffinitionToken.get("attributeAssignment")+initValue );
-                attribTpl.putToken("doc:tags:default",getTagDoc("default",initValue)+AS3CodeFormats.LINE_SEPARATOR);
-
-            }
-
-            bodyTpl.appendToken("attributes", indentLines(attribTpl.parse(), AS3CodeFormats.INDENT));
-
         }
-
-        //****************generate attributes from association
-	addAttributes( bodyTpl, klass );
-        bodyTpl.appendToken("functions", "");
-        functionRealizationList.addAll(facade.getOperations(klass));
-        addFunctions( bodyTpl, klass );
-        return bodyTpl.parse();
+        return sImplements;
     }
 
-    protected SourceTemplate getDoc(Object obj)
+    /**
+     * Given an element, this returns the template which represents its documentation
+     * @param element
+     * @return A template which represents its documentation
+     */
+    protected SourceTemplate getDoc(Object element)
     {
         SourceTemplate docTpl = new SourceTemplate( AS3CodeFormats.docTemplate );
 
         // base documentation
-        String doc= indentLines(facade.getTaggedValueValue(obj, Argo.DOCUMENTATION_TAG)," *\t");
+        String doc = indentLines(facade.getTaggedValueValue(element, Argo.DOCUMENTATION_TAG)," *\t");
         if( !doc.equals( "" ) )
         {
-            doc= doc + AS3CodeFormats.LINE_SEPARATOR;
+            doc = doc + AS3CodeFormats.LINE_SEPARATOR;
             docTpl.putToken("doc", doc);
         }
-        SourceTemplate innerTpl = getTypedDocTemplate( obj );
+        SourceTemplate innerTpl = getTypedDocTemplate( element );
 
         //Commune agroUML documentation
-        Collection<?> tagsValue = facade.getTaggedValuesCollection(obj);
+        Collection<?> tagsValue = facade.getTaggedValuesCollection(element);
 
         for(Object tv : tagsValue)
         {
@@ -398,47 +468,85 @@ public class GeneratorAS3 implements CodeGenerator {
         return docTpl;
     }
 
+    protected List getAnscestorFunctions( Object klass )
+    {
+        List functions = new ArrayList<Object>();
+        while( klass != null )
+        {
+            functions.addAll( getCurrentFunctions( klass ) );
+            klass = getParentClass( klass );
+        }
+        return functions;
+    }
+
+    protected List getCurrentFunctions( Object klass )
+    {
+        return facade.getOperations( klass );
+    }
+
+    protected Map<String,Object> getAncestorsMap( Object klass )
+    {
+        Map<String, Object> parentMap = new HashMap<String,Object>();
+        klass = getParentClass( klass );
+        List functions = getAnscestorFunctions( klass );
+        for( Object function: functions )
+        {
+            parentMap.put( facade.getName( function ), function );
+        }
+        return parentMap;
+    }
+    
+    /**
+     * Adds the class's functions to the template which represents the class
+     * body.  NOTE: As of Sept. 10, 2010, the functions lists are created
+     * elsewhere in the class.
+     * @param bodyTpl   The template to append.
+     * @param klass     The context class.
+     */
+    //FIXME: The functions here should not be generated sporatically throughout the class.
     protected void addFunctions( SourceTemplate bodyTpl, Object klass )
     {
         String template = ( facade.isAClass(klass) )? AS3CodeFormats.functionTemplate: AS3CodeFormats.functionInterfaceTemplate;
         SourceTemplate fctTpl = new SourceTemplate( template );
-        for (Object behavioralFeature : functionRealizationList)
+        List functions          = getCurrentFunctions( klass );
+        Map parentFunctionsMap  = getAncestorsMap( klass );
+        for (Object function : functions )
         {
-            if( functionGeneralisationMap.containsKey(facade.getName(behavioralFeature)))
+            if( parentFunctionsMap.containsKey(facade.getName(function)))
             {
-                fctTpl.putToken("override",AS3CodeFormats.languageDeffinitionToken.get("override"));
-                behavioralFeature = functionGeneralisationMap.get(facade.getName(behavioralFeature));
+                fctTpl.putToken("override",lang.get("override"));
+                function = parentFunctionsMap.get(facade.getName(function));
             }
-            fctTpl.putToken( "doc", getDoc( behavioralFeature ) );
-            fctTpl.putToken("visibility",AS3CodeFormats.functionVisibility.get(facade.getVisibility(behavioralFeature)));
+            fctTpl.putToken( "doc", getDoc( function ) );
+            fctTpl.putToken("visibility",AS3CodeFormats.functionVisibility.get(facade.getVisibility(function)));
 
-            if (facade.isStatic(behavioralFeature))
+            if (facade.isStatic(function))
             {
-                fctTpl.putToken("static",AS3CodeFormats.languageDeffinitionToken.get("static"));
+                fctTpl.putToken("static",lang.get("static"));
             }
-            if(facade.isLeaf(behavioralFeature))
+            if(facade.isLeaf(function))
                 fctTpl.putToken("final", "final ");
 
-            fctTpl.putToken("name",facade.getName(behavioralFeature));
+            fctTpl.putToken("name",facade.getName(function));
 
-            fctTpl.putToken("returnType",AS3CodeFormats.languageDeffinitionToken.get("FunctionNoReturnType"));
+            fctTpl.putToken("returnType",lang.get("functionNoReturnType"));
 
-            Collection<?> params = facade.getParameters(behavioralFeature);
+            Collection<?> params = facade.getParameters(function);
             String separator = "";
             for(Object param : params)
             {
                 Object paramType = facade.getType(param);
                 if(! facade.isReturn(param))
                 {
-                    fctTpl.appendToken("arguments", getArgumentString( param, separator ) );
-                    separator = AS3CodeFormats.languageDeffinitionToken.get("argumentSeparator");
+                    fctTpl.appendToken("arguments", separator + getArgumentString( param ) );
+                    separator = lang.get("argumentSeparator");
                 }
                 else if (paramType!=null)
                 {
                     addReturn( fctTpl, paramType );
                 }
             }
-            for (Object method : facade.getMethods(behavioralFeature))
+            for (Object method : facade.getMethods(function))
             {
                 addMethodBody( fctTpl, method );
             }
@@ -448,6 +556,12 @@ public class GeneratorAS3 implements CodeGenerator {
         }
     }
 
+    /**
+     * Adds the body of a method to a template.
+     *
+     * @param fctTpl    The template to append
+     * @param method    The object which is read by the facade.
+     */
     protected void addMethodBody( SourceTemplate fctTpl, Object method )
     {
         if (facade.getBody(method) != null)
@@ -457,12 +571,27 @@ public class GeneratorAS3 implements CodeGenerator {
         }
     }
 
+    /**
+     * Adds the return value to a template
+     * 
+     * @param fctTpl    The template representing the containing function
+     * @param paramType The type of the object returned.
+     */
     protected void addReturn( SourceTemplate fctTpl, Object paramType )
     {
-        fctTpl.putToken("returnType",facade.getName(paramType));
-        SourceTemplate rtnTpl = new SourceTemplate( AS3CodeFormats.returnTemplate );
-        rtnTpl.putToken("type", facade.getName(paramType));
-        fctTpl.putToken("returnValue",rtnTpl);
+        String retType  = facade.getName(paramType);
+        //sometimes people will type "void" as the return.
+        if( retType.equals( lang.get( "functionNoReturnType" ) ) )
+        {
+            fctTpl.putToken("returnValue","");
+        }
+        else
+        {            
+            SourceTemplate rtnTpl = new SourceTemplate( AS3CodeFormats.returnTemplate );
+            fctTpl.putToken("returnType",retType);
+            rtnTpl.putToken("type", retType);
+            fctTpl.putToken("returnValue",rtnTpl);
+        }
     }
 
     /**
@@ -490,58 +619,151 @@ public class GeneratorAS3 implements CodeGenerator {
         return new SourceTemplate( template );
     }
 
-    protected String getExtends( Object element )
+    /**
+     * Creates a string which represents the parent class
+     *
+     * @param klass The child class
+     * @return      Either an empty string or "extends &lt;class name&gt;"
+     */
+    protected String getExtends( Object klass )
     {
         String sExtends = "";
-        Collection<?> generalizations = facade.getGeneralizations(element);
-        if(!generalizations.isEmpty())
+        Object parent = getParentClass( klass );
+        if( parent != null )
         {
-            Object generalization = facade.getGeneral(generalizations.iterator().next());
-            sExtends = " " + AS3CodeFormats.languageDeffinitionToken.get("extends") + facade.getName(generalization);
-
-            Collection<?> operations=facade.getOperations(generalization);
-            for(Object op:operations)
-            {
-                functionGeneralisationMap.put(facade.getName(op),op);
-            }
+            sExtends = " " + lang.get( "extends" ) + facade.getName( parent );
         }
         return sExtends;
     }
 
-
-
-    protected void writeFileToPath( String fileContents, String pathName )
+    /**
+     * Given a class, this returns the parent class.
+     * @param type  The class or interface which is extended.
+     * @return      An object which represents the parent class.
+     */
+    protected Object getParentClass( Object type )
     {
-        File f = createFile( pathName );
+        Iterator it = facade.getGeneralizations( type ).iterator();
+        return ( it.hasNext() )? facade.getGeneral(it.next()): null;
+    }
+
+    /**
+     * Determines whether an object is differentiated from its context and is
+     * not a base class.
+     *
+     * @param test      The object to test
+     * @param context   The context to compare it to
+     * @return  Whether the test element is unique enough for import
+     */
+    protected boolean elementNeedsImport( Object test, Object context )
+    {
+        return ( test       !=null &&
+                 context    !=null &&
+                 facade.getNamespace( test ) != facade.getNamespace( context )&&
+                 !AS3CodeFormats.BASE_TYPES.contains( facade.getName( test ) ) );
+    }
+
+    /**
+     * Writes the provided content to the provided filename
+     * @param fileContents
+     * @param fileName
+     */
+    protected void writeFileContentsToPath( String fileContents, String fileName )
+    {
+        File f = createFile( fileName );
         BufferedWriter fos = null;
         try {
             fos = getWriter( f );
             fos.write( fileContents );
 
         } catch (IOException exp) {
-            LOG.error("IO Exception for file: " + f.getPath(), exp);
+            LOG.debug("IO Exception for file: " + f.getPath(), exp);
         } finally {
 
             try {
-                if (fos != null) {
+                if( fos != null )
+                {
                     fos.close();
                 }
             } catch (IOException exp) {
-                LOG.error("FAILED: " + f.getPath(), exp);
+                LOG.debug("FAILED: " + f.getPath(), exp);
             }
         }
     }
 
-    protected BufferedWriter getWriter( File f ) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException
+    /**
+     * Given a file, this returns a BufferedWriter with the appropriate encoding
+     * for writing to said file.
+     *
+     * @param file  The source to write to
+     * @return The appropriate writer
+     * @throws java.io.FileNotFoundException
+     * @throws java.io.UnsupportedEncodingException
+     */
+    protected BufferedWriter getWriter( File file ) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException
     {
         String configString = Configuration.getString(Argo.KEY_INPUT_SOURCE_ENCODING);
         if ( configString == null || configString.trim().equals("")) {
             configString = System.getProperty( "file.encoding" );
         }
-        return new BufferedWriter( new OutputStreamWriter( new FileOutputStream(f), configString ) );
+        return new BufferedWriter( new OutputStreamWriter( new FileOutputStream( file ), configString ) );
     }
-    
-    protected void addAttributes( SourceTemplate bodyTpl, Object element )
+
+    /**
+     * Adds all of the attributes which are UML associations
+     * @param bodyTpl   The template to modify
+     * @param klass     The class which is the source of the associations
+     */
+    protected void addAssociationAttributes( SourceTemplate bodyTpl, Object klass )
+    {
+        LOG.debug( "addAttributesToTemplate" );
+        Boolean isAssoc = facade.isAAssociationClass( klass );
+        Collection<Object> listedEnds = new ArrayList<Object>();
+        Collection<?> ends = getAttributeElements( klass );
+        for( Object obj : ends )
+        {
+            //avoid double attribute for recursive association
+            if( !listedEnds.contains( obj ) || isAssoc )
+            {
+                Object association = facade.getAssociation(obj);
+                Collection<?> connections = facade.getOtherAssociationEnds(obj);
+                if( facade.isAbstract( association ) )
+                {
+                    for (Object connection : connections)
+                    {
+                        LOG.debug( connection );
+                        if( facade.isNavigable( connection ) || isAssoc )
+                        {
+                            addAttributeToTemplate( bodyTpl, connection );
+                        }
+                        listedEnds.add(connection);
+                    }
+                }
+                else
+                {
+                    listedEnds.addAll( connections );
+                }
+            }
+        }
+    }
+
+    /**
+     * Simply adds an attribute to a template.
+     * @param bodyTpl       The template to append
+     * @param connection    The context to append it with
+     */
+    protected void addAttributeToTemplate( SourceTemplate bodyTpl, Object connection )
+    {
+        SourceTemplate attribTpl = getAttributeTemplate( connection );
+        bodyTpl.appendToken( "attributes", indentLines( attribTpl.parse(), AS3CodeFormats.INDENT ) );
+    }
+
+    /**
+     * Returns all of the attribute objects related to a given element
+     * @param element   The element with the attributes
+     * @return          The attributes in a Collection
+     */
+    protected Collection<?> getAttributeElements( Object element )
     {
         Collection<?> ends = facade.getAssociationEnds(element);
 
@@ -549,96 +771,81 @@ public class GeneratorAS3 implements CodeGenerator {
         {
             ends.addAll( facade.getConnections( element ) );
         }
-        LOG.error( ( ends.size() ) + " connections length" );
-        Collection<Object> listedEnds = new ArrayList<Object>();
-        for(Object obj : ends)
-        {
-            Object association = facade.getAssociation(obj);
-
-            //avoid double attribute for recursive association
-            if (!listedEnds.contains(obj)|| facade.isAAssociationClass(element))
-            {
-
-                Collection<?> connections = facade.getOtherAssociationEnds(obj);
-                for (Object connection : connections)
-                {
-                    if((facade.isNavigable(connection)&&!facade.isAbstract(association))
-                            ||(facade.isAAssociationClass(element)&&!facade.isAbstract(association)))
-                    {
-                        SourceTemplate attribTpl= getAttributes( connection, element );
-                        bodyTpl.appendToken("attributes", indentLines(attribTpl.parse(), AS3CodeFormats.INDENT) );
-                    }
-                    listedEnds.add(connection);
-                }
-            }
-        }
-        LOG.error( ( ends.size() ) + " connections length" );
+        return ends;
     }
-
     
     /**
      * Given an argument parameter, this will translate that into a String
      * which will then be concatenated to create the parameters list of a
-     * method.  Delimeter is included because of template system.
+     * method.
      * 
-     * @param param         The parameter object... whatever that is.
-     * @param isNotFirst    Whether there needs to be an argument delineator.
+     * @param param         The parameter object
      * @return              The string representation of the argument.
      */
-    protected String getArgumentString( Object param, String separator )
+    protected String getArgumentString( Object param )
     {
         SourceTemplate argTpl= new SourceTemplate(AS3CodeFormats.functionAgrumentTemplate);
         Object paramType = facade.getType(param);
-        argTpl.putToken("argumentSeparator", separator);
-        argTpl.putToken("name",facade.getName(param));
-        argTpl.putToken("typeAssignment",AS3CodeFormats.languageDeffinitionToken.get("typeAssignment"));
-        String type      = ( paramType!=null )? facade.getName(paramType):AS3CodeFormats.languageDeffinitionToken.get("defaultType");
-        argTpl.putToken("type", type);
+        String type      = ( paramType!=null )? 
+                                facade.getName(paramType):
+                                lang.get("defaultType");
         Object init = facade.getDefaultValue(param);
-        if (facade.isAExpression(init))
-           argTpl.putToken("initValue",AS3CodeFormats.languageDeffinitionToken.get("parameterAssignment")+facade.getBody(init));
-        else
-           argTpl.putToken("initValue","");
+        String initValue = (facade.isAExpression(init))?
+                                lang.get( "parameterAssignment" ) + facade.getBody(init):
+                                "";
+        String name = facade.getName( param );
+        
+        if( isBlank( name ) )
+        {
+            uniqueIndex++;
+            name = "my" + type.substring( 0, 1 ).toUpperCase() + type.substring( 1 ) + String.valueOf( uniqueIndex );
+
+        }
+
+        argTpl.putToken("type",              type                           );
+        argTpl.putToken("initValue",         initValue                      );
+        argTpl.putToken("argumentSeparator", ""                             );
+        argTpl.putToken("name",              name                           );
+        argTpl.putToken("typeAssignment",    lang.get( "typeAssignment" )   );
 
         return argTpl.parse();
     }
 
     /**
-     * 
+     * Returns a pre-formatted SourceTemplate which reflects the state of the
+     * provided attribute in its context
+     *
      * @param attrib    AssociationEnd or StructuralFeature to generate the
      *                  source code for
-     * @param element   The context element
      * @return a SourceTemplate of the attribute without initValue
      */
-    protected SourceTemplate getAttributes(Object attrib, Object element)
+    protected SourceTemplate getAttributeTemplate( Object attrib )
     {
-        SourceTemplate attribTpl = getAttributeTemplate( attrib );    
-        int upperMultiplicity = 1;
-        Object attribType = facade.getType(attrib);
-        String defaultName = "my" + facade.getName(attribType);
+        SourceTemplate attribTpl = getBaseAttributeTemplate( attrib );
+        int upperMultiplicity    = 1;
+        Object attribType        = facade.getType(attrib);
+        String defaultName       = "my" + facade.getName(attribType);
         if(facade.isAAssociationEnd(attrib))
         {
-            if(facade.isAAssociationClass(facade.getAssociation(attrib)))
+            Object assoc         = facade.getAssociation(attrib);
+            if(facade.isAAssociationClass( assoc ) )
             {//this is an association class association
-                if(!facade.isAAssociationClass(element))
+                if(!facade.isAAssociationClass(facade.getClassifier(attrib)))
                 {
                     //we are parsing the class linked with the association class
                     //so the type have to be the AssociationClass herself
-                    attribType = facade.getAssociation(attrib);
+                    attribType = assoc;
                     defaultName = "my" + facade.getName(attribType);
                 }
-            }else //this is a non class association
+            }
+            else //this is a non class association
             {
-                defaultName = nvl(  facade.getName(facade.getAssociation(attrib)),
-                                    defaultName );
+                defaultName = nvl(  facade.getName( assoc ), defaultName );
             }
             upperMultiplicity = facade.getUpper(attrib);
         }
         else //this is a StructuralFeature
         {
-            if (facade.isStatic(attrib))
-                attribTpl.putToken("static",AS3CodeFormats.languageDeffinitionToken.get("static"));
-
             try
             {
                 // facade.getMultiplicity(attrib)
@@ -650,8 +857,10 @@ public class GeneratorAS3 implements CodeGenerator {
             }
         } 
 
+        if (facade.isStatic(attrib)) attribTpl.putToken("static",lang.get("static"));
         String type = facade.getName(attribType);
-        if ( upperMultiplicity != 1 ) {
+        if ( upperMultiplicity != 1 )
+        {
             type = "Vector.<"+type+">";
         }
         String name = nvl( facade.getName(attrib), defaultName );
@@ -670,13 +879,12 @@ public class GeneratorAS3 implements CodeGenerator {
      * @return          The SourceTemplate which is to eventually represent the
      *                  provided attribute
      */
-    protected SourceTemplate getAttributeTemplate( Object attrib )
+    protected SourceTemplate getBaseAttributeTemplate( Object attrib )
     {
         SourceTemplate attribTpl = new SourceTemplate(AS3CodeFormats.varTemplate);
-
         attribTpl.putToken("visibility", AS3CodeFormats.attributesVisibility.get( facade.getVisibility( attrib ) ) );
         String changeability = ( facade.isReadOnly(attrib) )?"constant":"property";
-        attribTpl.putToken("changeability",AS3CodeFormats.languageDeffinitionToken.get( changeability ));
+        attribTpl.putToken("changeability",lang.get( changeability ));
         return attribTpl;
     }
     
@@ -690,7 +898,7 @@ public class GeneratorAS3 implements CodeGenerator {
     protected String getClassPath(Object element)
     {
         String path = getPackagePath(element);
-        return path.equals( "" ) ? "" : path + AS3CodeFormats.languageDeffinitionToken.get( "packageClassSeparator" );
+        return path.equals( "" ) ? "" : path + lang.get( "packageClassSeparator" );
     }
 
     /**
@@ -705,13 +913,13 @@ public class GeneratorAS3 implements CodeGenerator {
         SourceTemplate elementTpl = new SourceTemplate(AS3CodeFormats.packageElementTemplate);
         String separator     = "";
         // Prevents multiple string lookups.
-        String baseSeparator = AS3CodeFormats.languageDeffinitionToken.get( "packageClassSeparator" );
+        String baseSeparator = lang.get( "packageClassSeparator" );
         packageElement = facade.getNamespace( packageElement );
         while ( facade.getNamespace( packageElement ) != null )
         {
             elementTpl.prependToken( "name", facade.getName( packageElement ) + separator );
             // This assignment happens multiple times, but it is cleaner than
-            // a "isFirstRun" test.
+            // a bool "isFirstRun" test.
             separator = baseSeparator;
             packageElement = facade.getNamespace( packageElement );
         }
@@ -765,7 +973,8 @@ public class GeneratorAS3 implements CodeGenerator {
     }
 
     /**
-     * Applies the provided indent to the provided text
+     * Applies the provided indent to the provided text if the text string is
+     * not empty
      *
      * @param txt       The text to indent
      * @param indent    The indent to use
@@ -774,31 +983,58 @@ public class GeneratorAS3 implements CodeGenerator {
     public String indentLines(String txt, String indent)
     {
        if( txt.length()>0 )
-           return indent +( txt.replace("\r", "" ).replace( "\n", AS3CodeFormats.LINE_SEPARATOR ).replace( AS3CodeFormats.LINE_SEPARATOR, AS3CodeFormats.LINE_SEPARATOR + indent));
+           return indent + ( txt.replace("\r", "" )
+                                .replace( "\n", AS3CodeFormats.LINE_SEPARATOR )
+                                .replace
+                                (
+                                    AS3CodeFormats.LINE_SEPARATOR,
+                                    AS3CodeFormats.LINE_SEPARATOR + indent
+                                )
+                           );
        else
            return "";
     }
 
+    /**
+     * Iterates through a collection of elements and then writes their "file
+     * contents" to the path provided
+     *
+     * @param elements  The collection of elements.
+     * @param path      The path to write to.
+     */
     protected void writeElementsToPath( Collection elements, String path )
     {
         for (Object element : elements) {
-            String fileContents = getFileContents(element);
-            String fullPath     = getElementPath( element, path );
-            writeFileToPath( fileContents, fullPath );
+            String fileContents = getFileContents( element );
+            String fullPath     = appendElementPath( path, element );
+            writeFileContentsToPath( fileContents, fullPath );
         }
     }
 
-    protected String getElementPath( Object element, String path )
+    /**
+     * Given a path and an element, this will append the path/to/class of the
+     * element's package.
+     *
+     * @param path      The path to the base of the source tree
+     * @param element   The element to test
+     * @return          The path + the element's class path
+     */
+    protected String appendElementPath( String path, Object element )
     {
         if (!path.endsWith(FILE_SEPARATOR)) {
             path += FILE_SEPARATOR;
         }
-        path += getClassPath( element ).replace( AS3CodeFormats.languageDeffinitionToken.get( "packageClassSeparator" ), FILE_SEPARATOR );
-        path += facade.getName(element)+AS3CodeFormats.languageDeffinitionToken.get("fileExtension");
+        path += getClassPath( element ).replace( lang.get( "packageClassSeparator" ), FILE_SEPARATOR );
+        path += facade.getName(element) + lang.get("fileExtension");
         return path;
     }
 
-
+    /**
+     * Creates a File object given the full path to root.
+     * 
+     * @param filePath  The path
+     * @return The file object at that location
+     */
     protected File createFile( String filePath )
     {
         ensurePathExists( filePath );
@@ -806,13 +1042,46 @@ public class GeneratorAS3 implements CodeGenerator {
         return ret;
     }
 
+    /**
+     * Given a file's name, this makes sure that the path to that directory
+     * actually exists. (It first calls exists and then mkdirs if necessary)
+     *
+     * @param filePath
+     */
+    //TODO: This does not account for situations where the final path segment
+    // exists as a file...
     protected void ensurePathExists( String filePath )
     {
-        filePath    = filePath.substring( 0, filePath.lastIndexOf( FILE_SEPARATOR ) );
+        int sep     = filePath.lastIndexOf( FILE_SEPARATOR );
+        filePath    = filePath.substring( 0, sep );
         File path   = new File( filePath );
         if( !path.exists() )
         {
             path.mkdirs();
         }
+    }
+
+    /**
+     * Given an object, this will return whether that object is ( a class || an
+     * interface ) or not;
+     *
+     * @param obj   The object to test
+     * @return      Whether the object can be considered a "type"
+     */
+    protected Boolean isType( Object obj )
+    {
+        return ( facade.isAClass( obj ) || facade.isAInterface( obj ) );
+    }
+
+
+
+    /**
+     * This is the equivalent of StrinUtil.isBlank in the apache common's lib.
+     * @param str   A String to test
+     * @return      Whether it contains anything other than whitespace.
+     */
+    public static final boolean isBlank( String str )
+    {
+        return ( str == null || str.trim().length() == 0 );
     }
 }
