@@ -8,12 +8,13 @@
  *
  * Contributors:
  *    linus
+ *    cwallenpoole
  *****************************************************************************
  *
  * Some portions of this file was previously release using the BSD License:
  */
 
-// Copyright (c) 2006 The Regents of the University of California. All
+// Copyright (c) 2006-2010 The Regents of the University of California. All
 // Rights Reserved. Permission to use, copy, modify, and distribute this
 // software and its documentation without fee, and without a written
 // agreement is hereby granted, provided that the above copyright notice
@@ -48,7 +49,7 @@ import org.argouml.uml.generator.GeneratorManager;
 import org.argouml.uml.generator.Language;
 
 /**
- * Module manager for PHP4 generator.
+ * Module manager for ActionScript 3 generator.
  */
 public class Module implements ModuleInterface {
     
@@ -62,7 +63,7 @@ public class Module implements ModuleInterface {
     /**
      * The name of the language this module generates source code for
      */
-    protected static final String LANGUAGE_NAME = "ActionScript3";
+    protected static final String LANGUAGE_NAME = "AS3";
 
     /**
      * Icon to represent this notation in the GUI
@@ -81,21 +82,20 @@ public class Module implements ModuleInterface {
     public Module() {
     }
     
-    /*
+    /**
      * @see org.argouml.moduleloader.ModuleInterface#getName()
      */
     public String getName() {
         return "Generator" + LANGUAGE_NAME.toUpperCase();
     }
 
-    /*
+    /**
      * @see org.argouml.moduleloader.ModuleInterface#getInfo(int)
      */
     public String getInfo(int type) {
         switch (type) {
         case DESCRIPTION:
-            return "notation and source code generator for "
-		+ LANGUAGE_NAME.toUpperCase();
+            return "notation and source code generator for " + LANGUAGE_NAME.toUpperCase();
         case AUTHOR:
             return "Kai Schr\u00F6der";
         case VERSION:
@@ -105,7 +105,7 @@ public class Module implements ModuleInterface {
         }
     }
 
-    /*
+    /**
      * @see org.argouml.moduleloader.ModuleInterface#enable()
      */
     public boolean enable() {
@@ -116,10 +116,10 @@ public class Module implements ModuleInterface {
         }
         GeneratorManager.getInstance().addGenerator(myLang,
 						    new GeneratorAS3());
-	LOG.info("Module " + LANGUAGE_NAME + " enabled.");
+		LOG.info("Module " + LANGUAGE_NAME + " enabled.");
         return true;
     }
-    /*
+    /**
      * @see org.argouml.moduleloader.ModuleInterface#disable()
      */
     public boolean disable() {

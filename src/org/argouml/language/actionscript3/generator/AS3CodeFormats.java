@@ -171,16 +171,12 @@ public class AS3CodeFormats {
     public static final String methodDocTemplate =
         "{inheritDoc}{param}{return}{throws}{see}{since}{deprecated}{example}";
 
-
-
     public static final String docTemplate =
-            "/**" +LINE_SEPARATOR+
-            "{doc}"+
-            " *"+LINE_SEPARATOR+
-            "{tags}"+
+            "/**" +LINE_SEPARATOR+ "{doc}"+
+            " *"+LINE_SEPARATOR+ "{tags}"+
             " */"+LINE_SEPARATOR
             ;
     public static final String tagTemplate=" * {tagName}\t{tagValue}{description}";
 
-    public static final String returnTemplate= "var ret:{type} = null\n\treturn ret";
+    public static final String returnTemplate= "var ret:{type} = null;\n\treturn ret";
 }

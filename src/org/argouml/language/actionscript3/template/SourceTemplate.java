@@ -35,132 +35,131 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
 
 
 /** 
- *  make more readable the source code, and more easy to change template syntaxe
- *  take a string as template with inside tokens .
- *  asign tokens value.
- *  and get the result string.
- *  <code>
- *  myTpl =new SourceTemplate("a simple {token}template");
- *  myTpl.puttoken("token","pretty ");
- *  myTpl.parse()
- *  </code> 
- *  A template can have many same token name  but they will be fill with the same value.
- * 
- *  @author Flacher Romain
- *  @version=1
- *  @since=01 29 2009
- */
-public class SourceTemplate {
+*  make more readable the source code, and more easy to change template syntaxe
+*  take a string as template with inside tokens .
+*  asign tokens value.
+*  and get the result string.
+*  <code>
+*  myTpl =new SourceTemplate("a simple {token}template");
+*  myTpl.puttoken("token","pretty ");
+*  myTpl.parse()
+*  </code> 
+*  A template can have many same token name  but they will be fill with the same value.
+* 
+*  @author Flacher Romain
+*  @version=1
+*  @since=01 29 2009
+*/
+public class SourceTemplate
+{
+    private static final Logger LOG = Logger.getLogger(SourceTemplate.class);
+    /**
+     *  the internal string value of template
+     */
+    private String srcTemplate = "";
 
+    /**
+     *  a map of assigned tokens name and value
+     */
+    private HashMap<String,String> tokens = new HashMap<String,String>();
 
-  /** 
-   *  the internal string value of template
-   */
-  private String srcTemplate = "";
+    /**
+     *  a list of template's token name
+     */
+    private List<String> tokensNames = new ArrayList<String>();
 
-  /** 
-   *  a map of assignated tokens name and value
-   */
-  private HashMap<String,String> tokens = new HashMap<String,String>();
+    /**
+     *  a map of assigned token name and source template object
+     */
+    private Map<String,SourceTemplate> compositeTokens = new HashMap<String,SourceTemplate>();
 
-  /** 
-   *  a list of template's token name
-   */
-  private List<String> tokensNames = new ArrayList<String>();
+    /**
+     *  Create a new template, take the string to be the internal template source as parameter
+     */
+    public SourceTemplate(String template) {
 
-  /** 
-   *  a map of assignated token name and source template object
-   */
-  private Map<String,SourceTemplate> compositeTokens = new HashMap<String,SourceTemplate>();
-
-  /** 
-   *  Create a new template, take the string to be the internal template source as parameter
-   */
-  public SourceTemplate(String template) {
-      
-      setTemplate(template);
-      
-  }
-  /** 
-   * TODO:  Create a new template, take the file to be the internal template source as parameter
-   */
-
-public SourceTemplate(File template) {
+        setTemplate(template);
+    }
     
-       
-  }
-  
-  /** 
-   *  Create a new empty template
-   */
-  public SourceTemplate() {
-      
-  }
+    // TODO:  Create a new template, take the file to be the internal template source as parameter
+    public SourceTemplate(File template) {
 
-  /** 
-   *  replace the internal template source
-   */
-  public void setTemplate(String template) {
-      srcTemplate=(template.length()>0)?template:"";
-      fillTokensFromTemplate();
-  }
-  /** 
-   *  replace the internal template source from a file
-   */
-  public void setTemplate(File template) {
-      try {
-          // TODO: This is using the default platform character encoding
-          // specifying an encoding will produce more predictable results
-          FileReader f = new FileReader(template.getAbsolutePath());
-          BufferedReader fr = new BufferedReader(f);
 
-          String line = "";
-          StringBuilder content = new StringBuilder();
-          while (line != null) {
-              line = fr.readLine();
-              if (line != null) {
-                  content.append(line + System.getProperty("line.separator"));
-              }
-          setTemplate(content.toString());
-          fillTokensFromTemplate();
-          }
-          fr.close();
-          } catch (IOException e) {
-              //LOG.error("Error: " + e.toString());
-          }
-  }
+    }
 
-  /** 
-   *  define a template tokenName to be replace with value
-   */
-  public void putToken(String tokenName, String value) {
-      if(tokenName!=null&&tokenName.length()>0&&value!=null)
+    /**
+     *  Create a new empty template
+     */
+    public SourceTemplate() {
+
+    }
+
+    /**
+     *  replace the internal template source
+     */
+    public void setTemplate(String template) {
+        srcTemplate=(template.length()>0)?template:"";
+        fillTokensFromTemplate();
+    }
+    /**
+     *  replace the internal template source from a file
+     */
+    public void setTemplate(File template) {
+        try {
+            // TODO: This is using the default platform character encoding
+            // specifying an encoding will produce more predictable results
+            FileReader f = new FileReader(template.getAbsolutePath());
+            BufferedReader fr = new BufferedReader(f);
+
+            String line = "";
+            StringBuilder content = new StringBuilder();
+            while (line != null)
+            {
+                line = fr.readLine();
+                if (line != null) {
+                    content.append(line + System.getProperty("line.separator"));
+                }
+                setTemplate(content.toString());
+                fillTokensFromTemplate();
+            }
+            fr.close();
+        } catch (IOException e) {
+            LOG.error("Error: " + e.toString());
+        }
+    }
+
+    /**
+     *  define a template tokenName to be replace with value
+     */
+    public void putToken(String tokenName, String value) {
+      if( !isBlank( tokenName )&&value!=null)
       {
           if (tokenName.contains(":"))
           {
               SourceTemplate scrTemplate = compositeTokens.get(tokenName.substring(0,tokenName.indexOf(":")));
-              if (srcTemplate!=null)
-                  scrTemplate.putToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), value);
+              if (srcTemplate!=null) scrTemplate.putToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), value);
           }
-          else{
+          else
+          {
               tokens.put(tokenName, value);
-              
+
           }
-      }   
-  }
-  /** 
-   *  define a template tokenName to be replace with value
-   */
-  public void appendToken(String tokenName, String value) {
-      if(tokenName!=null&&tokenName.length()>0&&value!=null)      {
+      }
+    }
+
+    /**
+     *  define a template tokenName to be replace with value
+     */
+    public void appendToken(String tokenName, String value) {
+      if( !isBlank( tokenName ) &&value!=null)      {
           if (tokenName.contains(":"))
           {
               SourceTemplate scrTemplate = compositeTokens.get(tokenName.substring(0,tokenName.indexOf(":")));
-              if (srcTemplate!=null)
-                  scrTemplate.appendToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), value);
+              if (srcTemplate!=null)  scrTemplate.appendToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), value);
           }
           else
           {
@@ -171,18 +170,17 @@ public SourceTemplate(File template) {
               tokens.put(tokenName, value);
           }
       }
-  }
-  
-  /** 
-   *  define a template tokenName to be replace with value
-   */
-  public void prependToken(String tokenName, String value) {
-      if(tokenName!=null&&tokenName.length()>0&&value!=null)      {
+    }
+
+    /**
+     *  define a template tokenName to be replace with value
+     */
+    public void prependToken(String tokenName, String value) {
+      if( !isBlank( tokenName ) &&value!=null ){
           if (tokenName.contains(":"))
           {
               SourceTemplate scrTemplate = compositeTokens.get(tokenName.substring(0,tokenName.indexOf(":")));
-              if (srcTemplate!=null)
-                  scrTemplate.prependToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), value);
+              if (srcTemplate!=null) scrTemplate.prependToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), value);
           }
           else
           {
@@ -193,53 +191,53 @@ public SourceTemplate(File template) {
               tokens.put(tokenName, value);
           }
       }
-  }
+    }
 
-  /** 
-   *  for create a  composite template, define a tokenName to be replace by srcTemplate parse value when you parse the parent template
-   */
-  public void putToken(String tokenName, SourceTemplate scrTemplate) {
-      if(tokenName!=null&&tokenName.length()>0)
+    /**
+     *  for create a  composite template, define a tokenName to be replace by srcTemplate parse value when you parse the parent template
+     */
+    public void putToken(String tokenName, SourceTemplate scrTemplate) {
+      if( !isBlank( tokenName ) )
           if (tokenName.contains(":"))
           {
               SourceTemplate childTemplate = compositeTokens.get(tokenName.substring(0,tokenName.indexOf(":")));
-              if (srcTemplate!=null)
-                  childTemplate.putToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), scrTemplate);
+              if (srcTemplate!=null) childTemplate.putToken( tokenName.replaceFirst("[a-zA-Z]*:", ""), scrTemplate);
           }
           else
+          {
               compositeTokens.put(tokenName, scrTemplate);
-  }
+          }
+    }
 
-  /** 
-   *
-   */
-  public SourceTemplate getChild(String tokenName) {
+    /**
+     * Given a token name, return the token from the composite tokens which
+     * corresponds to it.
+     * @param tokenName The name of the token
+     * @return          The token from the composite.
+     */
+    public SourceTemplate getChild(String tokenName) {
       return compositeTokens.get(tokenName);
-  }
+    }
 
-  /** 
-   *
-   * add all elements from a map of tokens name and value
-   */
-  public  void putAllTokens(Map<String,String> tokensMap)
-  {
+    /**
+    *
+    * add all elements from a map of tokens name and value
+    */
+    public  void putAllTokens(Map<String,String> tokensMap)
+    {
       tokens.putAll(tokensMap);
-  }
-  /*
-  public  void putAllTokens(Map<String,SourceTemplate> tokensMap)
-  {
-      compositeTokens.putAll(tokensMap);
-  }*/
+    }
 
-  /** 
-   *  get the string result by replacing all token by his value
-   */
-  public String parse() {
-       
-      String tmpTemplate = srcTemplate.toString();
-      
-      for(String name :tokensNames)
-      {
+    /**
+     *  get the string result by replacing all token by its value
+     */
+    public String parse()
+    {
+
+        String tmpTemplate = srcTemplate.toString();
+
+        for(String name :tokensNames)
+        {
           String value;
           if(tokens.containsKey(name))
               value = tokens.get(name);
@@ -247,63 +245,48 @@ public SourceTemplate(File template) {
               value = compositeTokens.get(name).parse();
           else
               value="";
-          
+
           tmpTemplate=tmpTemplate.replace("{"+name+"}",value);
-      }
-      
-      
-      
-  return tmpTemplate;
-  }
-  
-  public boolean isEmpty()
-  {
-      if(!tokens.isEmpty())
-          return false;
-      else{
-          boolean empty = true;
-          for(String key :compositeTokens.keySet())
-          {
-              empty= empty && compositeTokens.get(key).isEmpty();
-          }
-          return empty;
-      }
-      
-      
-  }
+        }
 
-  //Fixme: This parameter is unimplemented!
-  public String parse(boolean blank) {
-      
-      if(isEmpty())
-          return "";
-      else
-      {
-          String tmpTemplate = srcTemplate.toString();
-          
-          for(String name :tokensNames)
-          {
-              String value;
-              if(tokens.containsKey(name))
-                  value = tokens.get(name);
-              else if(compositeTokens.containsKey(name))
-                  value = compositeTokens.get(name).parse(blank);
-              else
-                  value="";
-              
-              tmpTemplate=tmpTemplate.replace("{"+name+"}",value);
-          }
-          return tmpTemplate;
-      }
-          
-  }
+        return tmpTemplate;
+    }
 
-  /** 
-   * 
-   *  return true if internal template have a token with tokenName
-   *  if deep it true check  child template too
-   */
-  public boolean hasToken(String tokenName, boolean deep) {
+    /**
+     * @return Whether or not there are any keys in this or descendant templates
+     */
+    public boolean isEmpty()
+    {
+        if( !tokens.isEmpty() )
+        {
+            return false;
+        }
+        else
+        {
+            for(String key :compositeTokens.keySet())
+            {
+                if( !compositeTokens.get(key).isEmpty() )
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+
+    }
+
+    //Fixme: This parameter is unimplemented!
+    public String parse(boolean blank)
+    {
+        return parse();
+    }
+
+    /**
+     *
+     *  return true if internal template have a token with tokenName
+     *  if deep it true check  child template too
+     */
+    public boolean hasToken(String tokenName, boolean deep) {
       boolean hasToken = tokensNames.contains(tokenName);
       if(deep)
       {
@@ -312,39 +295,49 @@ public SourceTemplate(File template) {
               hasToken = hasToken || compositeTokens.get(name).hasToken(tokenName, deep);
           }
       }
-     
+
       return hasToken;
-  }
+    }
 
-  /** 
-   *
-   *  parse the internal  template string to fill the tokens name list
-   */
-
-  private void fillTokensFromTemplate()
-  {
-      tokensNames = new ArrayList<String>();
-      Pattern pattern = 
-          Pattern.compile("\\{([a-zA-Z]+)\\}");
-      Matcher matcher = 
-          pattern.matcher(srcTemplate);
-          while (matcher.find()) {
-              tokensNames.add(matcher.group(1));
-          }
-      
-  }
-  public void clearTokens()
-  {
+    /**
+     *
+     *  parse the internal template string to fill the tokens name list
+     */
+    private void fillTokensFromTemplate()
+    {
+        tokensNames = new ArrayList<String>();
+        Pattern pattern = Pattern.compile("\\{([a-zA-Z]+)\\}");
+        Matcher matcher = pattern.matcher(srcTemplate);
+        while (matcher.find()) {
+            tokensNames.add( matcher.group( 1 ) );
+        }
+    }
+    public void clearTokens()
+    {
       tokens = new HashMap<String,String>();
       compositeTokens = new HashMap<String,SourceTemplate>();
-  }
+    }
+
+    @Override
     public String toString()
     {
         return srcTemplate;
-        
+
     }
+
+    @Override
     public SourceTemplate clone()
     {
-        return new SourceTemplate(this.srcTemplate);
+        return new SourceTemplate( this.srcTemplate );
+    }
+
+    /**
+     * This is the equivalent of StrinUtil.isBlank in the apache common's lib.
+     * @param str   A String to test
+     * @return      Whether it contains anything other than whitespace.
+     */
+    public static final boolean isBlank( String str )
+    {
+        return ( str == null || str.trim().length() == 0 );
     }
 }
