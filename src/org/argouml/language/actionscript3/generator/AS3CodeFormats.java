@@ -7,7 +7,6 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Romain Flacher
  *    cwallenpoole
  *****************************************************************************
  */
@@ -103,7 +102,8 @@ public class AS3CodeFormats {
     public static final String classTemplate =
             "package {package}"+LINE_SEPARATOR+
             "{{imports}{mainClass}"+LINE_SEPARATOR+
-            "}{innerImports}{innerClass}"
+            "}" + LINE_SEPARATOR +
+            "{innerImports}{innerClass}"
             ;
 
     public static final String bodyClassTemplate =
@@ -112,13 +112,16 @@ public class AS3CodeFormats {
         LINE_SEPARATOR+"}"
             ;
 
-    public static final String varTemplate =LINE_SEPARATOR+"{doc}{visibility}{static}{changeability}{name} : {type}{initValue};";
+    public static final String varTemplate =
+        LINE_SEPARATOR+
+        "{doc}{visibility}{static}{changeability}{name} : {type}{initValue};" +
+        LINE_SEPARATOR;
 
     public static final String functionTemplate =
         LINE_SEPARATOR+"{doc}{override}{visibility}{static}{final}function {name}({arguments}) : {returnType}" +
         LINE_SEPARATOR+"{"+
         LINE_SEPARATOR+INDENT+"{code}{returnValue}" +
-        LINE_SEPARATOR+"};"
+        LINE_SEPARATOR+"}" + LINE_SEPARATOR;
             ;
     public static final String functionInterfaceTemplate =
         LINE_SEPARATOR+"{doc}{static}{final}function {name}({arguments}): {returnType};"
@@ -150,7 +153,7 @@ public class AS3CodeFormats {
         types.put("defaultType","*");
         types.put("fileExtension",".as");
         types.put("attributeAssignment"," = ");
-        types.put("FunctionNoReturnType","void");
+        types.put("functionNoReturnType","void");
         types.put("parameterAssignment"," = ");
         types.put("typeAssignment"," : ");
         types.put("defaultType","*");
