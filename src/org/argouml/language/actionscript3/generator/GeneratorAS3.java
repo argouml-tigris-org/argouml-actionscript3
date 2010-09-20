@@ -468,6 +468,7 @@ public class GeneratorAS3 implements CodeGenerator {
         return docTpl;
     }
 
+    //TODO: COMMENT!!!
     protected List getAnscestorFunctions( Object klass )
     {
         List functions = new ArrayList<Object>();
@@ -479,11 +480,13 @@ public class GeneratorAS3 implements CodeGenerator {
         return functions;
     }
 
+    //TODO: COMMENT!!!
     protected List getCurrentFunctions( Object klass )
     {
         return facade.getOperations( klass );
     }
 
+    //TODO: COMMENT!!!
     protected Map<String,Object> getAncestorsMap( Object klass )
     {
         Map<String, Object> parentMap = new HashMap<String,Object>();
@@ -503,7 +506,7 @@ public class GeneratorAS3 implements CodeGenerator {
      * @param bodyTpl   The template to append.
      * @param klass     The context class.
      */
-    //FIXME: The functions here should not be generated sporatically throughout the class.
+    //TODO: This method should be broken up into more readable parts
     protected void addFunctions( SourceTemplate bodyTpl, Object klass )
     {
         String template = ( facade.isAClass(klass) )? AS3CodeFormats.functionTemplate: AS3CodeFormats.functionInterfaceTemplate;
