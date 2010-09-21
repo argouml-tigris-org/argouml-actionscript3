@@ -97,7 +97,7 @@ public class Module implements ModuleInterface {
         case DESCRIPTION:
             return "notation and source code generator for " + LANGUAGE_NAME.toUpperCase();
         case AUTHOR:
-            return "Kai Schr\u00F6der";
+            return "Flacher Romain, cwallenpoole";
         case VERSION:
             return "0.0.$Revision$";
         default:
@@ -116,7 +116,7 @@ public class Module implements ModuleInterface {
         }
         GeneratorManager.getInstance().addGenerator(myLang,
 						    new GeneratorAS3());
-		LOG.info("Module " + LANGUAGE_NAME + " enabled.");
+	LOG.info("Module " + LANGUAGE_NAME + " enabled.");
         return true;
     }
     /**

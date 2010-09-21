@@ -480,13 +480,21 @@ public class GeneratorAS3 implements CodeGenerator {
         return functions;
     }
 
-    //TODO: COMMENT!!!
+    /**
+     * A wrapper around facade.getOperations.
+     * @param klass
+     * @return
+     */
     protected List getCurrentFunctions( Object klass )
     {
         return facade.getOperations( klass );
     }
 
-    //TODO: COMMENT!!!
+    /**
+     * Returns a map of function names to function objects of ancestor classes
+     * @param klass The child class
+     * @return  The map of function
+     */
     protected Map<String,Object> getAncestorsMap( Object klass )
     {
         Map<String, Object> parentMap = new HashMap<String,Object>();
