@@ -20,9 +20,9 @@
 
   <parent>
     <groupId>org.argouml</groupId>
-    <artifactId>parentpom-for-modules</artifactId>
+    <artifactId>parentpom</artifactId>
     <version>0.1</version>
-    <relativePath>../argouml/tools/maven/parentpom-for-modules.xml</relativePath>
+    <relativePath>../argouml/tools/maven/parentpom.xml</relativePath>
   </parent>
 
   <dependencies>
@@ -48,5 +48,10 @@
       <scope>compile</scope>
     </dependency>
   </dependencies>
+
+  <name>argouml-actionscript3</name>
+  <description>
+Actionscript3 support for argouml.
+  </description>
 
 </project>
