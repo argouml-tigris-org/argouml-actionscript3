@@ -75,7 +75,6 @@ public class GeneratorAS3 implements CodeGenerator {
     // This is a shortcut... AS3CodeFormats.languageDeffinitionToken is
     // REALLY long.
     protected static Map<String, String> lang;
-    protected Map<String, Object> functionGeneralisationMap;
     private static Facade facade;
 
     private static int uniqueIndex = 0;
@@ -221,7 +220,6 @@ public class GeneratorAS3 implements CodeGenerator {
         {
             return "";
         }
-        functionGeneralisationMap = new HashMap<String, Object>();
 
         SourceTemplate bodyTpl = getBodyTemplate( klass );
         addImplementations( bodyTpl, klass );
@@ -422,6 +420,7 @@ public class GeneratorAS3 implements CodeGenerator {
     {
         String sImplements =  " implements ";
         Iterator<?> iterator = realizations.iterator();
+        boolean first = true;
         while(iterator.hasNext())
         {
             Object implemented = iterator.next();
@@ -431,9 +430,10 @@ public class GeneratorAS3 implements CodeGenerator {
             //same implementation.  I suspect it had to do with inheritence
             if( sImplements.indexOf( temp ) < 0 )
             {
-                if( sImplements.length() > 0 ) sImplements += lang.get( "argumentSeparator" );
+                if( sImplements.length() > 0 && !first ) sImplements += lang.get( "argumentSeparator" );
                 sImplements += temp;
             }
+            first = false;
         }
         return sImplements;
     }
