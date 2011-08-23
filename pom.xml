@@ -19,11 +19,6 @@
   <version>0.2-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <scm>
-    <connection>scm:svn:http://argouml-actionscript3.tigris.org/svn/argouml-actionscript3/trunk</connection>
-    <url>http://argouml-actionscript3.tigris.org/source/browse/argouml-actionscript3/trunk</url>
-  </scm>
-
   <dependencies>
     <dependency>
       <groupId>org.argouml</groupId>
@@ -57,6 +52,6 @@ Actionscript3 support for argouml.
   <scm>
     <connection>scm:svn:http://argouml-actionscript3.tigris.org/svn/argouml-actionscript3/trunk/</connection>
     <developerConnection>scm:svn:http://argouml-actionscript3.tigris.org/svn/argouml-actionscript3/trunk/</developerConnection>
-    <url>http://argouml-actionscript3.tigris.org/svn/argouml-actionscript3/trunk/</url>
+    <url>http://argouml-actionscript3.tigris.org/source/browse/argouml-actionscript3/trunk</url>
   </scm>
 </project>
