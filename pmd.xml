@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pmd version="4.3" timestamp="2019-10-07T21:46:46.908">
+<file name="/home/linus/project/argouml/github-repo/argouml-actionscript3/src/org/argouml/language/actionscript3/template/SourceTemplate.java">
+<violation beginline="35" endline="35" begincolumn="1" endcolumn="21" rule="UnusedImports" ruleset="Import Statement Rules" package="org.argouml.language.actionscript3.template" externalInfoUrl="http://pmd.sourceforge.net/rules/imports.html#UnusedImports" priority="4">
+Avoid unused imports such as 'java.util.Set'
+</violation>
+<violation beginline="89" endline="92" begincolumn="12" endcolumn="5" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.argouml.language.actionscript3.template" class="SourceTemplate" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
+Avoid unused constructor parameters such as 'template'.
+</violation>
+</file>
+</pmd>
