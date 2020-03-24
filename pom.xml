@@ -46,8 +46,7 @@ Actionscript3 support for argouml.
   </description>
 
   <scm>
-    <connection>scm:svn:http://argouml-actionscript3.tigris.org/svn/argouml-actionscript3/trunk/</connection>
-    <developerConnection>scm:svn:http://argouml-actionscript3.tigris.org/svn/argouml-actionscript3/trunk/</developerConnection>
-    <url>http://argouml-actionscript3.tigris.org/source/browse/argouml-actionscript3/trunk</url>
+    <!-- Specify this or maven will add artifactId. -->
+    <url>https://github.com/argouml-tigris-org/${github.site.repositoryName}</url>
   </scm>
 </project>
