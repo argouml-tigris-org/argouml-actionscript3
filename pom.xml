@@ -19,14 +19,14 @@
     <dependency>
       <groupId>org.argouml</groupId>
       <artifactId>argouml</artifactId>
-      <version>0.34</version>
+      <version>0.35.2-SNAPSHOT</version>
       <type>jar</type>
       <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.argouml</groupId>
       <artifactId>argouml-model</artifactId>
-      <version>0.34</version>
+      <version>0.35.2-SNAPSHOT</version>
       <type>jar</type>
       <scope>compile</scope>
     </dependency>
