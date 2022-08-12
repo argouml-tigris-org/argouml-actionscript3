@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pmd version="4.3" timestamp="2022-08-12T18:04:46.332">
+<pmd version="4.3" timestamp="2022-08-12T18:44:52.100">
 <file name="/var/snap/jenkins/2767/workspace/ion_argouml-actionscript3_master/src/org/argouml/language/actionscript3/template/SourceTemplate.java">
 <violation beginline="35" endline="35" begincolumn="1" endcolumn="21" rule="UnusedImports" ruleset="Import Statement Rules" package="org.argouml.language.actionscript3.template" externalInfoUrl="http://pmd.sourceforge.net/rules/imports.html#UnusedImports" priority="4">
 Avoid unused imports such as 'java.util.Set'
